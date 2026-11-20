@@ -1,9 +1,10 @@
-/* ============================================================
-   QUA-TANG-SINH-NHAT-CRUSH — LOGIC
-   Gồm: nạp cấu hình, hệ thống tự đánh giá & điều chỉnh hiệu năng
-   (mục VIII), âm thanh SFX (mục X), hạt lấp lánh, và hành trình
-   quà tặng (mục IV). Toàn bộ chạy cục bộ, không gửi dữ liệu đi đâu.
-   ============================================================ */
+  /* ============================================================
+     QUA-TANG-SINH-NHAT-CRUSH — LOGIC
+     Gồm: nạp cấu hình, hệ thống tự đánh giá & điều chỉnh hiệu năng
+     (mục VIII), âm thanh SFX (mục X), hạt lấp lánh + pháo giấy,
+     tilt 3D theo con trỏ, và hành trình quà tặng (mục IV).
+     Toàn bộ chạy cục bộ, không gửi dữ liệu đi đâu.
+     ============================================================ */
 (function () {
   'use strict';
 
@@ -91,15 +92,20 @@
         } else { el.textContent = val; }
       } else { el.textContent = val; }
     });
-    // Nội dung thư
+    // Nội dung thư (+ --i/--pn cho hiệu ứng từng đoạn hiện lần lượt)
     const body = $('#letter-body');
     if (body) {
       body.textContent = '';
-      (CFG.letter.paragraphs || []).forEach(function (p) {
+      const paras = CFG.letter.paragraphs || [];
+      paras.forEach(function (p, i) {
         const node = document.createElement('p');
         node.textContent = interpolate(p, CTX);
+        node.style.setProperty('--i', i);
         body.appendChild(node);
       });
+      body.style.setProperty('--pn', paras.length);
+      const letterArt = $('#letter-article');
+      if (letterArt) letterArt.style.setProperty('--pn', paras.length);
     }
     // Lời nhắn nhỏ
     const row = $('#notes-row');
@@ -732,12 +738,35 @@
       g.fill();
       return c;
     }
+    function makeRibbonSprite(w) {
+      const c = document.createElement('canvas');
+      c.width = w;
+      c.height = Math.max(6, Math.round(w * 0.4));
+      const g = c.getContext('2d');
+      const cw = c.width, ch = c.height, r = Math.min(4, ch / 2);
+      const grd = g.createLinearGradient(0, 0, 0, ch);
+      grd.addColorStop(0, '#F8E2BC');
+      grd.addColorStop(0.5, '#F2D49B');
+      grd.addColorStop(1, '#DFB97E');
+      g.fillStyle = grd;
+      g.beginPath();
+      g.moveTo(r, 0); g.lineTo(cw - r, 0); g.quadraticCurveTo(cw, 0, cw, r);
+      g.lineTo(cw, ch - r); g.quadraticCurveTo(cw, ch, cw - r, ch);
+      g.lineTo(r, ch); g.quadraticCurveTo(0, ch, 0, ch - r);
+      g.lineTo(0, r); g.quadraticCurveTo(0, 0, r, 0);
+      g.closePath(); g.fill();
+      g.strokeStyle = 'rgba(122, 92, 58, 0.20)';
+      g.lineWidth = 1;
+      g.stroke();
+      return c;
+    }
     function buildSprites() {
       sprites.star = makeStarSprite(48);
       sprites.dotA = makeGlowSprite(26, 'rgba(233,184,169,0.95)', 'rgba(233,184,169,0.35)');
       sprites.dotB = makeGlowSprite(22, 'rgba(255,250,238,0.95)', 'rgba(255,250,238,0.30)');
       sprites.petalA = makePetalSprite(30, '233,184,169');
       sprites.petalB = makePetalSprite(26, '216,184,217');
+      sprites.ribbon = makeRibbonSprite(30);
     }
     function resize() {
       if (!ctx2d) return;
@@ -755,6 +784,9 @@
       };
       prof = map[p] || map.balanced;
       capDpr = prof.dpr;
+      // Đồng bộ hệ số giảm tải runtime (máy đột ngột quá tải → ít hạt hơn)
+      const rt = document.documentElement.dataset.rt;
+      rateMul = rt === 'mid' ? 0.7 : rt === 'low' ? 0.5 : 1;
       resize();
       // nếu đang ở chế độ bụi màn đầu mà máy yếu → dừng hẳn vòng lặp hạt
       if (mode === 'landing' && !(prof.landing > 0)) ambient = false;
@@ -776,9 +808,11 @@
       parts.push({
         x: x, y: y, vx: vx, vy: vy,
         life: 0, ttl: opts.ttl || (1.3 + Math.random() * 1.2),
-        size: (kind === 'star' ? 15 : kind === 'petal' ? 13 : 10) + Math.random() * 10,
+        size: (kind === 'star' ? 15 : kind === 'petal' ? 13 : kind === 'ribbon' ? 12 : 10) + Math.random() * 10,
         rot: Math.random() * Math.PI,
-        vr: kind === 'petal' ? (Math.random() - 0.5) * 1.2 : (Math.random() - 0.5) * 2.4,
+        vr: kind === 'petal' ? (Math.random() - 0.5) * 1.2
+          : kind === 'ribbon' ? (Math.random() - 0.5) * 1.8
+          : (Math.random() - 0.5) * 2.4,
         kind: kind, tw: Math.random() * 6.28, twf: 2 + Math.random() * 3,
         grav: opts.grav != null ? opts.grav : 26,
         sway: opts.sway || 0,
@@ -792,6 +826,30 @@
         const a = -Math.PI / 2 + (Math.random() - 0.5) * 2.6;
         const sp = 60 + Math.random() * 250;
         spawn(x, y, Math.cos(a) * sp, Math.sin(a) * sp, Math.random() < 0.5 ? 'star' : 'dot');
+      }
+    }
+    /* Mảnh ruy băng văng ra đúng khoảnh khắc ruy băng tuột khỏi hộp */
+    function debris(x, y) {
+      const count = Math.round((14 + Math.random() * 6) * rateMul);
+      for (let i = 0; i < count; i++) {
+        const a = -Math.PI / 2 + (Math.random() - 0.5) * 2.2;
+        const sp = 120 + Math.random() * 220;
+        spawn(x + (Math.random() - 0.5) * 60, y,
+          Math.cos(a) * sp, Math.sin(a) * sp, 'ribbon',
+          { ttl: 1.2 + Math.random() * 0.9, grav: 110, sway: 8 });
+      }
+    }
+    /* Pháo giấy mừng màn kết — hỗn hợp cánh hoa, ruy băng, sao, bụi sáng */
+    function confetti(x, y) {
+      const count = Math.round(prof.burst * 0.95 * rateMul);
+      for (let i = 0; i < count; i++) {
+        const r = Math.random();
+        const kind = r < 0.34 ? 'petal' : r < 0.58 ? 'ribbon' : r < 0.8 ? 'star' : 'dot';
+        const a = -Math.PI / 2 + (Math.random() - 0.5) * 2.0;
+        const sp = 130 + Math.random() * 300;
+        spawn(x + (Math.random() - 0.5) * 90, y + (Math.random() - 0.5) * 40,
+          Math.cos(a) * sp, Math.sin(a) * sp, kind,
+          { ttl: 2.1 + Math.random() * 1.7, grav: kind === 'ribbon' ? 60 : 34, sway: kind === 'petal' ? 20 : 8 });
       }
     }
     function startAmbient(m) {
@@ -845,17 +903,25 @@
           p.x += (p.vx + swayV) * dt; p.y += p.vy * dt;
           p.rot += p.vr * dt;
           const k = p.life / p.ttl;
-          const base = p.kind === 'petal' ? 0.75 : (0.55 + 0.45 * Math.sin(p.tw + t * 0.004 * p.twf));
+          const base = p.kind === 'petal' ? 0.75
+            : p.kind === 'ribbon' ? 0.85
+            : (0.55 + 0.45 * Math.sin(p.tw + t * 0.004 * p.twf));
           const alpha = Math.sin(Math.PI * Math.min(k, 1)) * base * p.alphaMul;
           const sp = p.kind === 'star' ? sprites.star
             : p.kind === 'petal' ? (i % 2 ? sprites.petalA : sprites.petalB)
+            : p.kind === 'ribbon' ? sprites.ribbon
             : (i % 2 ? sprites.dotA : sprites.dotB);
           const s = p.size * (p.kind === 'petal' ? 1 : (1 - k * 0.25));
           ctx2d.globalAlpha = clamp(alpha, 0, 1);
           ctx2d.save();
           ctx2d.translate(p.x, p.y);
           ctx2d.rotate(p.rot);
-          ctx2d.drawImage(sp, -s / 2, -s / 2, s, s);
+          if (p.kind === 'ribbon') {
+            const sw = s * 1.7, sh = s * 0.62;
+            ctx2d.drawImage(sp, -sw / 2, -sh / 2, sw, sh);
+          } else {
+            ctx2d.drawImage(sp, -s / 2, -s / 2, s, s);
+          }
           ctx2d.restore();
         }
         ctx2d.globalAlpha = 1;
@@ -868,7 +934,67 @@
     buildSprites();
     resize();
     window.__qtParticles = { applyProfile: applyProfile };
-    return { burst: burst, startAmbient: startAmbient, stopAmbient: stopAmbient, stopAll: stopAll, applyProfile: applyProfile };
+    return { burst: burst, debris: debris, confetti: confetti, startAmbient: startAmbient, stopAmbient: stopAmbient, stopAll: stopAll, applyProfile: applyProfile };
+  })();
+
+  /* ============================================================
+     TILT 3D THEO CON TRỎ — hộp quà & thẻ lời nhắn nghiêng theo chuột.
+     Chỉ bật cho pointer fine (chuột/bút), tắt khi reduced-motion.
+     Ghi biến CSS qua rAF (không gây reflow) — chi phí gần bằng 0.
+     ============================================================ */
+  const Tilt = (function () {
+    const fine = window.matchMedia ? window.matchMedia('(pointer: fine)').matches : false;
+    function bindGift() {
+      if (!fine || reduceMotionMQ.matches) return;
+      const stage = $('.gift-stage'), scene = $('.gift-scene');
+      if (!stage || !scene) return;
+      let raf = 0, tx = 0, ty = 0, sx = 0;
+      function paint() {
+        raf = 0;
+        scene.style.setProperty('--tiltX', tx.toFixed(2) + 'deg');
+        scene.style.setProperty('--tiltY', ty.toFixed(2) + 'deg');
+        stage.style.setProperty('--shiftX', sx.toFixed(1) + 'px');
+      }
+      stage.addEventListener('pointermove', function (e) {
+        const r = stage.getBoundingClientRect();
+        if (!r.width || !r.height) return;
+        const px = (e.clientX - r.left) / r.width - 0.5;
+        const py = (e.clientY - r.top) / r.height - 0.5;
+        tx = clamp(px, -0.5, 0.5) * 16;
+        ty = clamp(py, -0.5, 0.5) * -11;
+        sx = tx * -0.9;
+        if (!raf) raf = requestAnimationFrame(paint);
+      });
+      stage.addEventListener('pointerleave', function () {
+        tx = 0; ty = 0; sx = 0;
+        if (!raf) raf = requestAnimationFrame(paint);
+      });
+    }
+    function bindNotes() {
+      if (!fine || reduceMotionMQ.matches) return;
+      $$('.note-card').forEach(function (card) {
+        let raf = 0, nx = 0, ny = 0;
+        function paint() {
+          raf = 0;
+          card.style.setProperty('--nx', nx.toFixed(2) + 'deg');
+          card.style.setProperty('--ny', ny.toFixed(2) + 'deg');
+        }
+        card.addEventListener('pointermove', function (e) {
+          const r = card.getBoundingClientRect();
+          if (!r.width || !r.height) return;
+          const px = (e.clientX - r.left) / r.width - 0.5;
+          const py = (e.clientY - r.top) / r.height - 0.5;
+          ny = clamp(px, -0.5, 0.5) * 14;
+          nx = clamp(py, -0.5, 0.5) * -12;
+          if (!raf) raf = requestAnimationFrame(paint);
+        });
+        card.addEventListener('pointerleave', function () {
+          nx = 0; ny = 0;
+          if (!raf) raf = requestAnimationFrame(paint);
+        });
+      });
+    }
+    return { init: function () { bindGift(); bindNotes(); } };
   })();
 
   /* ============================================================
@@ -923,7 +1049,11 @@
       stage.classList.add('is-shaking');
       AudioMan.play('gift-shake');
       after(1000, function () { stage.classList.add('bow-off'); });
-      after(1600, function () { stage.classList.add('ribbon-off'); });
+      after(1600, function () {
+        stage.classList.add('ribbon-off');
+        const r0 = stage.getBoundingClientRect();
+        Particles.debris(r0.left + r0.width / 2, r0.top + r0.height * 0.42);
+      });
       after(1850, function () {
         stage.classList.remove('is-shaking');
         stage.classList.add('lid-open');
@@ -966,7 +1096,9 @@
         envStage.classList.add('is-fading');
         after(430, function () {
           envStage.hidden = true;
-          $('#letter-article').hidden = false;
+          const art = $('#letter-article');
+          art.hidden = false;
+          requestAnimationFrame(function () { art.classList.add('is-in'); });
           $('#notes-block').hidden = false;
           Perf.freeze(800);
         });
@@ -1027,6 +1159,11 @@
       if (Perf.closePanel) Perf.closePanel();
       document.documentElement.classList.add('is-resetting');
       stage.classList.remove('is-shaking', 'bow-off', 'ribbon-off', 'lid-open', 'is-lit', 'card-peek');
+      const letterArt = $('#letter-article');
+      if (letterArt) letterArt.classList.remove('is-in');
+      const scene = $('.gift-scene');
+      if (scene) { scene.style.removeProperty('--tiltX'); scene.style.removeProperty('--tiltY'); }
+      stage.style.removeProperty('--shiftX');
       envStage.classList.remove('is-opening', 'is-open', 'is-fading');
       envStage.hidden = false;
       $('#letter-article').hidden = true;
@@ -1054,6 +1191,9 @@
       $('#btn-finish').addEventListener('click', function () {
         goto('ending');
         Particles.startAmbient('ending');
+        after(320, function () {
+          Particles.confetti(window.innerWidth / 2, window.innerHeight * 0.58);
+        });
         AudioMan.play('ending-chime', { delay: 0.25 });
       });
       $('#btn-replay').addEventListener('click', reset);
@@ -1061,6 +1201,7 @@
       $('#btn-end').addEventListener('click', function () {
         Particles.stopAll();
         goto('farewell');
+        after(850, function () { Particles.startAmbient('landing'); });
         Perf.stopMonitor();
       });
       document.addEventListener('keydown', function (e) {
@@ -1097,4 +1238,5 @@
   try { Perf.init(); } catch (e) { try { console.error('[Perf]', e); } catch (e2) { } }
   try { AudioMan.init(); } catch (e) { try { console.error('[Audio]', e); } catch (e2) { } }
   try { Journey.init(); } catch (e) { try { console.error('[Journey]', e); } catch (e2) { } }
+  try { Tilt.init(); } catch (e) { try { console.error('[Tilt]', e); } catch (e2) { } }
 })();
