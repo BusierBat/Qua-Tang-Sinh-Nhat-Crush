@@ -485,7 +485,7 @@
       'paper': 'assets/audio/paper.mp3',
       'ending-chime': 'assets/audio/ending-chime.mp3'
     };
-    const GAIN = { 'gift-shake': 0.8, 'gift-open': 0.85, 'sparkle': 0.6, 'envelope-open': 0.8, 'paper': 0.65, 'ending-chime': 0.8 };
+    const GAIN = { 'gift-shake': 0.9, 'gift-open': 0.85, 'sparkle': 0.6, 'envelope-open': 0.85, 'paper': 0.85, 'ending-chime': 0.8 };
     const MIN_GAP = { 'gift-shake': 250, 'gift-open': 300, 'sparkle': 150, 'envelope-open': 250, 'paper': 250, 'ending-chime': 500 };
     const MAX_ACTIVE = 4;
 
@@ -560,6 +560,8 @@
     }
 
     /* --- Fallback tổng hợp bằng WebAudio (không cần file) --- */
+    /* Cùng "tính cách" với bản mp3 v2: mode không hài hòa (gõ gỗ),
+       chuông beating, sột giấy stick-slip. Chỉ chạy khi mp3 lỗi/bị chặn. */
     function getNoise() {
       if (noiseBuf) return noiseBuf;
       const len = Math.floor(ctx.sampleRate * 1.2);
@@ -568,84 +570,106 @@
       for (let i = 0; i < len; i++) d[i] = Math.random() * 2 - 1;
       return noiseBuf;
     }
-    function synth(name, when, g) {
-      if (!ctx) return;
-      try {
-        if (name === 'sparkle') return synthSparkle(when, g);
-        if (name === 'ending-chime') return synthChime(when, g);
-        synthNoise(name, when, g);
-      } catch (e) { /* âm thanh lỗi không được làm hỏng trang */ }
+    function outNode(pan) {
+      if (ctx.createStereoPanner) {
+        const p = ctx.createStereoPanner();
+        p.pan.value = Math.max(-1, Math.min(1, pan));
+        p.connect(master);
+        return p;
+      }
+      return master;
     }
-    function synthNoise(name, when, g) {
+    /* Cú gõ modal: các mode tần số lệch (không phải bội số), decay riêng, pitch drop lúc va chạm */
+    function hitModal(when, freqs, amp, tau, pan, drop) {
+      freqs.forEach(function (f0, i) {
+        const o = ctx.createOscillator(), og = ctx.createGain();
+        const dur = Math.min(0.5, tau * 4 / (1 + 1.1 * i));
+        o.type = 'sine';
+        o.frequency.setValueAtTime(f0 * (1 + (drop ? 0.06 : 0.015)), when);
+        o.frequency.exponentialRampToValueAtTime(f0, when + 0.05);
+        og.gain.setValueAtTime(0.0001, when);
+        og.gain.linearRampToValueAtTime(amp / (1 + 1.35 * i), when + 0.004);
+        og.gain.exponentialRampToValueAtTime(0.0008, when + dur);
+        o.connect(og); og.connect(outNode(pan));
+        track(o);
+        o.start(when); o.stop(when + dur + 0.05);
+      });
+    }
+    /* Nốt chuông: partial không hài hòa kiểu chuông thật, lệch tần khẽ (beating) */
+    function bellTone(when, f0, amp, tau, pan) {
+      [[1.0, 1], [2.0, 0.4], [2.74, 0.22], [3.76, 0.12]].forEach(function (pr, i) {
+        const o = ctx.createOscillator(), og = ctx.createGain();
+        const dur = Math.min(3.2, tau * 3.2 / (1 + 1.1 * i));
+        o.type = 'sine';
+        o.frequency.value = f0 * pr[0] * (1 + (i % 2 ? 0.0016 : -0.0016));
+        og.gain.setValueAtTime(0.0001, when);
+        og.gain.linearRampToValueAtTime(amp * pr[1], when + 0.008);
+        og.gain.exponentialRampToValueAtTime(0.0008, when + dur);
+        o.connect(og); og.connect(outNode(pan));
+        track(o);
+        o.start(when); o.stop(when + dur + 0.05);
+      });
+    }
+    /* Sột giấy stick-slip: nhiễu bandpass với nhiều bump ngẫu nhiên kế tiếp */
+    function rustle(when, dur, fLo, fHi, amp, pan, bumps) {
       const src = ctx.createBufferSource();
       src.buffer = getNoise();
       src.loop = true;
       const bp = ctx.createBiquadFilter();
       bp.type = 'bandpass';
-      bp.Q.value = 0.9;
+      bp.frequency.setValueAtTime((fLo + fHi) / 2, when);
+      bp.Q.value = 1.1;
       const gn = ctx.createGain();
-      gn.gain.value = 0;
-      src.connect(bp); bp.connect(gn); gn.connect(master);
-      let dur = 0.5, f0 = 800, f1 = 0, triple = false;
-      if (name === 'gift-shake') { dur = 0.9; f0 = 500; triple = true; }
-      if (name === 'gift-open') { dur = 0.6; f0 = 400; f1 = 1500; }
-      if (name === 'envelope-open') { dur = 0.4; f0 = 1600; }
-      if (name === 'paper') { dur = 0.6; f0 = 1100; }
-      bp.frequency.setValueAtTime(f0, when);
-      if (f1) bp.frequency.linearRampToValueAtTime(f1, when + dur * 0.6);
-      const beats = triple ? [0, 0.3, 0.58] : [0];
-      beats.forEach(function (off) {
-        const t = when + off;
-        gn.gain.setValueAtTime(0, t);
-        gn.gain.linearRampToValueAtTime(g * 0.55, t + 0.015);
-        gn.gain.exponentialRampToValueAtTime(0.001, t + Math.min(0.3, dur - off));
-      });
-      if (name === 'gift-open') {
-        const o = ctx.createOscillator(), og = ctx.createGain();
-        o.type = 'sine';
-        o.frequency.setValueAtTime(200, when + 0.42);
-        o.frequency.exponentialRampToValueAtTime(90, when + 0.6);
-        og.gain.setValueAtTime(0.0001, when + 0.42);
-        og.gain.linearRampToValueAtTime(g * 0.5, when + 0.46);
-        og.gain.exponentialRampToValueAtTime(0.001, when + 0.64);
-        o.connect(og); og.connect(master);
-        o.start(when + 0.42); o.stop(when + 0.68);
+      gn.gain.setValueAtTime(0.0001, when);
+      const nb = bumps || 4;
+      for (let i = 1; i <= nb; i++) {
+        const t = when + (dur * i) / (nb + 1);
+        gn.gain.linearRampToValueAtTime(amp * (0.5 + Math.random() * 0.5), t);
+        gn.gain.exponentialRampToValueAtTime(Math.max(0.0009, amp * 0.12), t + dur / (nb + 1) * 0.7);
       }
+      gn.gain.linearRampToValueAtTime(0.0001, when + dur);
+      src.connect(bp); bp.connect(gn); gn.connect(outNode(pan));
+      track(src);
+      src.start(when); src.stop(when + dur + 0.05);
+    }
+    /* Đếm node đang phát cho MAX_ACTIVE (đồng bộ với nhánh phát mp3) */
+    function track(node) {
       activeCount++;
-      src.onended = function () { activeCount = Math.max(0, activeCount - 1); };
-      src.start(when);
-      src.stop(when + dur + 0.05);
+      node.onended = function () { activeCount = Math.max(0, activeCount - 1); };
     }
-    function synthSparkle(when, g) {
-      [1567.98, 1975.53, 2349.32, 3135.96].forEach(function (f, i) {
-        const t = when + i * 0.09;
-        const o = ctx.createOscillator(), og = ctx.createGain();
-        o.type = 'sine'; o.frequency.value = f;
-        og.gain.setValueAtTime(0.0001, t);
-        og.gain.linearRampToValueAtTime(g * 0.38 / (1 + i * 0.25), t + 0.012);
-        og.gain.exponentialRampToValueAtTime(0.001, t + 0.42);
-        o.connect(og); og.connect(master);
-        o.start(t); o.stop(t + 0.46);
-      });
-    }
-    function synthChime(when, g) {
-      [[523.25, 0], [659.26, 0.13], [783.99, 0.26], [1046.5, 0.48]].forEach(function (nt, i) {
-        const t = when + nt[1], f = nt[0];
-        const o = ctx.createOscillator(), og = ctx.createGain();
-        const o2 = ctx.createOscillator(), og2 = ctx.createGain();
-        o.type = 'sine'; o.frequency.value = f;
-        o2.type = 'sine'; o2.frequency.value = f * 2;
-        og.gain.setValueAtTime(0.0001, t);
-        og.gain.linearRampToValueAtTime(g * 0.34 / (1 + i * 0.2), t + 0.02);
-        og.gain.exponentialRampToValueAtTime(0.001, t + 1.9);
-        og2.gain.setValueAtTime(0.0001, t);
-        og2.gain.linearRampToValueAtTime(g * 0.09 / (1 + i * 0.2), t + 0.02);
-        og2.gain.exponentialRampToValueAtTime(0.001, t + 1.1);
-        o.connect(og); og.connect(master);
-        o2.connect(og2); og2.connect(master);
-        o.start(t); o.stop(t + 2.1);
-        o2.start(t); o2.stop(t + 1.2);
-      });
+    function synth(name, when, g) {
+      if (!ctx) return;
+      try {
+        if (name === 'gift-shake') {
+          [0, 0.3, 0.58].forEach(function (off, i) {
+            hitModal(when + off, [96, 187, 312, 470], g * 0.6, 0.05, i % 2 ? 0.25 : -0.25, true);
+            rustle(when + off + 0.004, 0.15, 500, 3400, g * 0.8, i % 2 ? 0.5 : -0.4, 5);
+          });
+        } else if (name === 'gift-open') {
+          rustle(when, 0.42, 320, 1500, g * 0.7, 0.05, 3);
+          hitModal(when + 0.43, [520, 810, 1240], g * 0.5, 0.012, 0.1, false);
+          hitModal(when + 0.455, [82, 132, 198], g * 0.8, 0.11, 0, true);
+          rustle(when + 0.55, 0.4, 2400, 6200, g * 0.22, 0.3, 2);
+        } else if (name === 'envelope-open') {
+          rustle(when, 0.16, 900, 3800, g * 0.7, -0.05, 3);
+          rustle(when + 0.16, 0.15, 1000, 3600, g * 0.8, 0.08, 4);
+          rustle(when + 0.31, 0.09, 300, 1000, g * 0.5, 0.2, 2);
+          hitModal(when + 0.315, [148, 262, 410], g * 0.4, 0.05, 0, true);
+          rustle(when + 0.52, 0.2, 1400, 3200, g * 0.2, 0.1, 2);
+        } else if (name === 'paper') {
+          [[0.0, 0.16, 1350, -0.2], [0.15, 0.13, 1850, 0.45], [0.27, 0.17, 1650, -0.4], [0.43, 0.12, 2300, 0.25], [0.56, 0.22, 1450, 0.0]]
+            .forEach(function (s) { rustle(when + s[0], s[1], s[2] * 0.5, s[2] * 1.6, g * 0.75, s[3], 5); });
+        } else if (name === 'sparkle') {
+          [[1567.98, 0.0, -0.15], [2093.0, 0.095, 0.15], [2349.32, 0.175, 0.0], [2793.83, 0.27, 0.3], [3135.96, 0.38, 0.5]]
+            .forEach(function (nt) { bellTone(when + nt[1], nt[0], g * 0.4, 0.3, nt[2]); });
+        } else if (name === 'ending-chime') {
+          [[523.25, 0.0, -0.2], [659.26, 0.17, 0.25], [783.99, 0.34, -0.1], [1046.5, 0.62, 0.15]]
+            .forEach(function (nt) { bellTone(when + nt[1], nt[0], g * 0.42, 1.5, nt[2]); });
+          bellTone(when + 0.95, 1318.51, g * 0.1, 0.9, 0);
+        } else {
+          rustle(when, 0.5, 800, 2000, g * 0.6, 0, 3);
+        }
+      } catch (e) { /* âm thanh lỗi không được làm hỏng trang */ }
     }
 
     function setMuted(m) {
