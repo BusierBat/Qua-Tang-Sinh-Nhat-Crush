@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="Hộp quà">
+  <rect x="0" y="0" width="64" height="64" rx="16" fill="#F6EBDD"/>
+  <rect x="12" y="28" width="40" height="26" rx="6" fill="#E9B8A9"/>
+  <rect x="7" y="18" width="50" height="12" rx="5" fill="#F2D49B"/>
+  <rect x="28" y="18" width="8" height="36" fill="#F2D49B"/>
+  <path d="M32 18c-6-8-16-8-14 0 1.4 5.2 8.4 4.6 14 0Z" fill="#F2D49B"/>
+  <path d="M32 18c6-8 16-8 14 0-1.4 5.2-8.4 4.6-14 0Z" fill="#F2D49B"/>
+  <circle cx="32" cy="19" r="4.5" fill="#E4C083"/>
+</svg>

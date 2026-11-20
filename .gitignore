@@ -1,0 +1,16 @@
+# Thông tin cá nhân / bản cá nhân hóa — KHÔNG đưa lên repo công khai
+# (xem README.md → mục "Riêng tư")
+config.personal.js
+personal/
+*.personal.*
+*.local.js
+
+# Hệ thống / trình soạn thảo
+.DS_Store
+Thumbs.db
+*.swp
+.vscode/
+.idea/
+
+# Node (nếu bạn thêm công cụ phát triển cục bộ)
+node_modules/
