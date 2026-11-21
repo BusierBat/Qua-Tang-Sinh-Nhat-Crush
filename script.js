@@ -1326,10 +1326,10 @@
       if (envStage) envStage.addEventListener('click', function (e) {
         if (e.target.closest('.envelope')) openLetter();
       });
-      /* Nút "đi tiếp" dẫn THẲNG tới màn kết thúc (v9: bỏ thử thách snake) */
+      /* Nút "đi tiếp" dẫn tới màn giới thiệu thử thách cuối (Snake — bắt buộc) */
       $('#btn-finish').addEventListener('click', function () {
         AudioMan.play('paper');
-        enterEnding();
+        goto('snake-intro');
       });
       $('#btn-snake-start').addEventListener('click', function () {
         if (!SnakeGame) return;
