@@ -1103,11 +1103,10 @@
 
   /* ============================================================
      HÀNH TRÌNH QUÀ TẶNG (mục IV) — máy trạng thái tuyến tính:
-     landing → opening → card → letter (+notes) → snake-intro →
-     snake → ending → farewell
-     MÀN KẾT THÚC BỊ KHÓA: chỉ hoàn thành minigame (thu đủ 5 tim)
-     mới mở. Cờ snakeDone nằm trong closure này — không có nút skip,
-     không có biến toàn cục, không đường đi trực tiếp từ DOM.
+     landing → opening → card → letter (+notes) → ending → farewell
+     (v9: thử thách snake đã NGẮT KHỎI LUỒNG theo yêu cầu — màn kết thúc mở
+     cho mọi người. Code snake vẫn còn nhưng không màn nào dẫn tới nữa; muốn
+     bật lại chỉ cần trỏ btn-finish về goto('snake-intro') và khôi phục gate.)
      ============================================================ */
   const Journey = (function () {
     const SnakeGame = window.SnakeGame || null;
@@ -1149,11 +1148,25 @@
     }
 
     function goto(name) {
-      // khóa cứng: chưa hoàn thành minigame thì không vào được ending
-      if (name === 'ending' && !snakeDone) name = 'snake-intro';
       // rời màn snake: dừng vòng lặp game (không tốn tài nguyên)
       if (current === 'snake' && SnakeGame) SnakeGame.stop();
       phase = name; show(name);
+    }
+
+    /* --- VÀO MÀN KẾT THÚC (v9): mở cho mọi người, kèm ăn mừng pháo giấy --- */
+    function enterEnding() {
+      goto('ending');
+      Particles.startAmbient('ending');
+      AudioMan.play('ending-chime', { delay: 0.25 });
+      after(320, function () {
+        Particles.confetti(window.innerWidth / 2, window.innerHeight * 0.58);
+      });
+      after(950, function () {
+        Particles.confetti(window.innerWidth * 0.24, window.innerHeight * 0.42);
+      });
+      after(1650, function () {
+        Particles.confetti(window.innerWidth * 0.76, window.innerHeight * 0.44);
+      });
     }
 
     /* --- 2. Trình tự mở quà: rung → tháo nơ → ruy băng → nắp mở →
@@ -1313,10 +1326,10 @@
       if (envStage) envStage.addEventListener('click', function (e) {
         if (e.target.closest('.envelope')) openLetter();
       });
-      /* Nút "đi tiếp" giờ dẫn tới THỬ THÁCH CUỐI (snake), không phải ending */
+      /* Nút "đi tiếp" dẫn THẲNG tới màn kết thúc (v9: bỏ thử thách snake) */
       $('#btn-finish').addEventListener('click', function () {
         AudioMan.play('paper');
-        goto('snake-intro');
+        enterEnding();
       });
       $('#btn-snake-start').addEventListener('click', function () {
         if (!SnakeGame) return;
@@ -1340,21 +1353,7 @@
             snakeDone = true;
             AudioMan.play('snake-complete', { delay: 0.05 });
             // để hiệu ứng 5/5 + thông điệp chúc mừng chạy xong tự nhiên rồi chuyển cảnh
-            after(1500, function () {
-              goto('ending');
-              Particles.startAmbient('ending');
-              // 3 đợt pháo giấy chào mừng — trái tim vừa thu được hóa thành ăn mừng
-              AudioMan.play('ending-chime', { delay: 0.25 });
-              after(320, function () {
-                Particles.confetti(window.innerWidth / 2, window.innerHeight * 0.58);
-              });
-              after(950, function () {
-                Particles.confetti(window.innerWidth * 0.24, window.innerHeight * 0.42);
-              });
-              after(1650, function () {
-                Particles.confetti(window.innerWidth * 0.76, window.innerHeight * 0.44);
-              });
-            });
+            after(1500, enterEnding);
           }
         });
       }
