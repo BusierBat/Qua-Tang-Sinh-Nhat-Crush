@@ -31,7 +31,10 @@ window.SnakeGame = (function () {
   var BODY_W = 3.5, TAIL_W = 1.1;        // độ dày thân -> đuôi
   var START_LEN = 26, GROW_PER = 14;     // chiều dài cung (đơn vị)
   var SPEED0 = 17.0, SPEED_STEP = 1.4, SPEED_MAX = 26.0;   // nhanh, sống động
-  var HEART_R = 5.4, CAPTURE_R = 10.0;   // tim to rõ + vùng ăn rộng (dễ trên điện thoại)
+  var HEART_R = 5.4, CAPTURE_R = 14.0;   // CHẠM LÀ ĂN: vùng ăn rộng hơn hẳn hình tim + quầng
+  var BODY_CAPTURE_R = 9.0;              // thân (kể cả cổ) chạm tim cũng ăn
+  var SPAWN_CLEAR = 14.0;                // tim spawn phải cách TOÀN BỘ đường rắn đã đi ≥14
+  var MAGNET_R = 20.0, MAGNET_SPEED = 6.5; // NAM CHÂM: tim tự trượt về đầu khi lại gần — không thể lỡ
   var TURN_RATE = 3.8;                   // rad/s — quẹo mượt bằng bàn phím
   var PURSUE_TURN = 4.8;                 // rad/s — đuổi theo ngón tay (bám nhanh hơn)
   var PURSUE_DEAD = 5.0;                 // vùng chết quanh đầu: ngón quá gần thì giữ hướng
@@ -186,7 +189,15 @@ window.SnakeGame = (function () {
         steer: function (dx, dy) { requestDir(dx, dy); },
         setHeading: function (a) { heading = a; dirX = Math.cos(a); dirY = Math.sin(a); targetAng = null; },
         pursue: function (x, y) { ptr.on = true; ptr.x = x; ptr.y = y; targetAng = null; },
-        pursueEnd: function () { ptr.on = false; targetAng = null; }
+        pursueEnd: function () { ptr.on = false; targetAng = null; },
+        nearestTrail: function (x, y) {          // kiểm chứng luật spawn (E2E)
+          var m = 1e9;
+          for (var i = trail.length - 1; i >= 0; i--) {
+            var d = Math.hypot(x - trail[i].x, y - trail[i].y);
+            if (d < m) m = d;
+          }
+          return Math.round(m * 10) / 10;
+        }
       };
     }
   }
@@ -321,23 +332,29 @@ window.SnakeGame = (function () {
     return samples;
   }
   function spawnHeart() {
-    var body = sampleBodyPoints();
-    var best = null, bestScore = -1;
+    /* QUAN TRỌNG (sửa lỗi "xuyên qua tim" trong video người chơi): bản cũ quét
+       sampleBodyPoints() — bỏ mặc 7 đơn vị cổ sát đầu, nên tim có thể spawn
+       NGAY LÊN CỔ RẮN: thân đè lên tim mãi mà không điểm nào được tính chạm.
+       Giờ quét TOÀN BỘ trail (gồm cổ) — tim luôn cách đường rắn đã đi ≥14. */
+    var best = null, bestScore = -1, loose = null, looseBest = -1;
     for (var t = 0; t < 220; t++) {
       var x = rnd(MARGIN, WORLD_W - MARGIN), y = rnd(MARGIN, WORLD_H - MARGIN);
       var ok = true, minD = 1e9;
-      if (Math.hypot(x - px, y - py) < CAPTURE_R + 6) continue;
-      for (var i = 0; i < body.length; i++) {
-        var d = Math.hypot(x - body[i].x, y - body[i].y);
-        if (d < 7.5) { ok = false; break; }
+      if (Math.hypot(x - px, y - py) < CAPTURE_R + 4) continue;
+      for (var i = trail.length - 1; i >= 0; i -= 2) {
+        var d = Math.hypot(x - trail[i].x, y - trail[i].y);
+        if (d < SPAWN_CLEAR) { ok = false; break; }   // đủ xa toàn bộ đường đã đi (gồm cổ)
         if (d < minD) minD = d;
       }
+      if (minD > looseBest) { looseBest = minD; loose = { x: x, y: y, born: now() }; }
       if (!ok) continue;
       var score = Math.min(minD, 30) + (t > 40 ? 0 : 1);
       if (score > bestScore) { bestScore = score; best = { x: x, y: y, born: now() }; }
       if (t > 60 && best) break;
     }
-    heart = best || { x: WORLD_W / 2, y: WORLD_H / 2, born: now() };
+    // hết chỗ thoải mái thì chọn điểm THÔNG THƯỞNG nhất (xa rắn nhất từng thử),
+    // tuyệt đối không spawn đè lên rắn như fallback tâm bản đồ cũ
+    heart = best || loose || { x: WORLD_W / 2, y: WORLD_H / 2, born: now() };
   }
 
   /* ============================================================
@@ -373,6 +390,18 @@ window.SnakeGame = (function () {
       steerToward(targetAng, TURN_RATE * dt);
     }
     dirX = Math.cos(heading); dirY = Math.sin(heading);
+    // NAM CHÂM (v8): khi đầu lại gần tim (<20u), tim TỰ TRƯỢT về phía đầu —
+    // người chơi chỉ cần đi NGAY GẦN là được ăn, không còn cách nào lỡ mất tim.
+    // Tim được kẹp trong biên bản đồ; REDUCE thì bỏ glide cho người ít chuyển động.
+    if (heart && state === 'playing' && !REDUCE) {
+      var mdx = heart.x - px, mdy = heart.y - py, md = Math.hypot(mdx, mdy);
+      if (md > 0.5 && md < MAGNET_R) {
+        var pull = Math.min(MAGNET_SPEED * dt, md);
+        heart.x -= (mdx / md) * pull; heart.y -= (mdy / md) * pull;
+        heart.x = Math.max(MARGIN, Math.min(WORLD_W - MARGIN, heart.x));
+        heart.y = Math.max(MARGIN, Math.min(WORLD_H - MARGIN, heart.y));
+      }
+    }
     var stepLen = speed * dt;
     // chia bước nhỏ để va chạm không "nhảy qua" vật thể
     var sub = Math.ceil(stepLen / 0.8);
@@ -389,10 +418,34 @@ window.SnakeGame = (function () {
       var lt = trail[trail.length - 1];
       var dd = Math.hypot(px - lt.x, py - lt.y);
       if (dd > 0.12) { trail.push({ x: px, y: py }); segLen.push(dd); }
-      // ăn tim
+      // ăn tim — CHẠM LÀ ĂN (4 lớp):
+      // 1) quét cả ĐOẠN đường đầu vừa đi (kể cả frame lag/giật dài)
+      // 2) bán kính ăn 14 — rộng hơn hình tim + quầng, mắt thấy chạm là ăn thật
+      // 3) thân rắn chạm tim cũng ăn
+      // 4) cả vùng CỔ sát đầu (không có trong mẫu thân) cũng được quét
       if (heart && state === 'playing') {
-        var hd = Math.hypot(px - heart.x, py - heart.y);
-        if (hd < CAPTURE_R) { collect(); }
+        var oxh = px - dirX * sl, oyh = py - dirY * sl;        // điểm đầu trước bước này
+        var vx = px - oxh, vy = py - oyh, L2 = vx * vx + vy * vy;
+        var tt = L2 > 0 ? ((heart.x - oxh) * vx + (heart.y - oyh) * vy) / L2 : 0;
+        if (tt < 0) tt = 0; else if (tt > 1) tt = 1;
+        var qx = oxh + vx * tt - heart.x, qy = oyh + vy * tt - heart.y;
+        if (qx * qx + qy * qy < CAPTURE_R * CAPTURE_R) { collect(); }
+        else {
+          var ate = false;
+          var bpts = sampleBodyPoints();
+          for (var hb = 0; hb < bpts.length; hb++) {
+            var bdx = heart.x - bpts[hb].x, bdy = heart.y - bpts[hb].y;
+            if (bdx * bdx + bdy * bdy < BODY_CAPTURE_R * BODY_CAPTURE_R) { collect(); ate = true; break; }
+          }
+          if (!ate) {                                          // vùng cổ: 14 đơn vị sát đầu
+            var hh = heart, walked = 0;
+            for (var nt = trail.length - 1; nt > 0 && walked < SELF_SKIP + 7; nt--) {
+              var ndx = hh.x - trail[nt].x, ndy = hh.y - trail[nt].y;
+              if (ndx * ndx + ndy * ndy < BODY_CAPTURE_R * BODY_CAPTURE_R) { collect(); break; }
+              walked += segLen[nt] || 0;
+            }
+          }
+        }
       }
       // va chạm thân (chỉ khi đang chơi)
       if (state === 'playing' && checkSelf()) return crash('self');

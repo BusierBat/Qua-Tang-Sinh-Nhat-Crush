@@ -491,13 +491,13 @@
       'heart-collect': 'assets/audio/heart-collect.mp3',
       'snake-complete': 'assets/audio/snake-complete.mp3'
     };
-    const GAIN = { 'gift-shake': 0.9, 'gift-open': 0.85, 'sparkle': 0.6, 'envelope-open': 0.85, 'paper': 0.85, 'ending-chime': 0.8, 'heart-collect': 0.7, 'snake-complete': 0.85 };
+    const GAIN = { 'gift-shake': 0.5, 'gift-open': 0.5, 'sparkle': 0.38, 'envelope-open': 0.5, 'paper': 0.45, 'ending-chime': 0.5, 'heart-collect': 0.5, 'snake-complete': 0.55 };
     const MIN_GAP = { 'gift-shake': 250, 'gift-open': 300, 'sparkle': 150, 'envelope-open': 250, 'paper': 250, 'ending-chime': 500, 'heart-collect': 120, 'snake-complete': 900 };
     const MAX_ACTIVE = 4;
 
     /* --- Nhạc nền hộp nhạc (loop seamless) --- */
     const BGM_FILE = 'assets/audio/bgm-loop.mp3';
-    const BGM_LEVEL = 0.5;                 // nhân thêm trên master (0.9) — nền rất êm
+    const BGM_LEVEL = 0.3;                 // nhân thêm trên master (0.75) — nền lullaby rất êm
     let ctx = null, master = null, unlocked = false;
     let muted = (store.get('qt-sound') === '0');
     const buffers = {}, failed = {}, lastPlay = {};
@@ -514,7 +514,7 @@
         try {
           ctx = new AC();
           master = ctx.createGain();
-          master.gain.value = muted ? 0 : 0.9;
+          master.gain.value = muted ? 0 : 0.75;
           master.connect(ctx.destination);
         } catch (e) { ctx = null; return null; }
       }
@@ -1131,6 +1131,10 @@
     function show(name) {
       const prev = screens[current], next = screens[name];
       if (!next || prev === next) return;
+      // bỏ focus khỏi phần tử sắp bị ẩn — tránh cảnh báo aria-hidden mất focus
+      if (prev.contains(document.activeElement)) {
+        try { document.activeElement.blur(); } catch (e) { }
+      }
       prev.classList.remove('is-active');
       prev.setAttribute('aria-hidden', 'true');
       setInert(prev, true);
