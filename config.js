@@ -93,6 +93,26 @@ window.GIFT_CONFIG = {
     skipLabel: "Đọc rồi, đi tiếp nhé"
   },
 
+  /* ---------- 5b+6. THỬ THÁCH CUỐI: SNAKE (bắt buộc để đến màn kết thúc) ---------- */
+  snake: {
+    introTitle: "Một thử thách nhỏ trước điều cuối cùng",
+    introBody: "Điều cuối cùng nằm sau một trò chơi nhỏ: điều khiển chú rắn pastel, thu thập đủ 5 trái tim là điều đặc biệt sẽ hiện ra. Chạm biên hay chạm thân là phải chơi lại — không sao, nhẹ nhàng thôi.",
+    goalText: "Mục tiêu:",
+    startLabel: "Bắt đầu thử thách",
+    hudTitle: "Thu thập 5 trái tim",
+    hint: "Không giới hạn thời gian — đi chậm mà chắc nhé.",
+    controlsKbd: "Trên máy tính: WASD hoặc phím mũi tên — rắn quẹo mượt theo hướng bấm",
+    controlsTouch: "Trên điện thoại: chạm và giữ ở nơi bạn muốn — rắn tự quẹo theo ngón tay",
+    ovReady: "Sẵn sàng…",
+    ovPaused: "Tạm dừng",
+    resumeLabel: "Chơi tiếp",
+    ovCrashTitle: "Chạm nhẹ quá rồi!",
+    ovCrashBody: "Tiến trình tim quay về 0/5 — thử lại nhé, lần này chắc chắn sẽ được.",
+    retryLabel: "Chơi lại từ đầu",
+    ovWinTitle: "Tuyệt vời — đủ 5/5!",
+    ovWinBody: "Điều cuối cùng đang mở ra…"
+  },
+
   /* ---------- 6. MÀN HÌNH KẾT THÚC ---------- */
   ending: {
     title: "Và một điều cuối cùng…",

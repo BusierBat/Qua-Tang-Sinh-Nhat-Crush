@@ -1258,3 +1258,374 @@ html.is-resetting *::after {
   .screen-landing { --gift-size: clamp(160px, 30vh, 220px); }
   .screen { padding-top: calc(env(safe-area-inset-top, 0px) + 58px); }
 }
+
+/* ============================================================
+   SNAKE — THỬ THÁCH CUỐI (minigame bắt buộc)
+   Đồng bộ pastel cao cấp: kem sáng, bo góc mềm, hoa lá vector.
+   Không lưới hiển thị, không emoji, không pixel art.
+   ============================================================ */
+.snake-defs {
+  position: absolute;
+  width: 0;
+  height: 0;
+  overflow: hidden;
+}
+
+.screen-snake { padding-top: calc(env(safe-area-inset-top, 0px) + 52px); }
+
+.snake-root {
+  margin: auto;
+  width: 100%;
+  max-width: min(clamp(300px, 88vw, 430px), calc((100dvh - 236px) * 0.8));
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  align-items: center;
+}
+
+/* --- HUD: tiêu đề + 5 tim tiến trình --- */
+.snake-hud {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 7px;
+}
+.snake-hud-title {
+  font-family: var(--font-display);
+  font-size: clamp(1.05rem, 4.4vw, 1.3rem);
+  color: var(--c-cocoa);
+  margin: 0;
+  letter-spacing: 0.01em;
+}
+.snake-hearts {
+  display: flex;
+  gap: 9px;
+  align-items: center;
+  min-height: 34px;
+}
+.heart-slot {
+  width: clamp(24px, 7vw, 30px);
+  height: auto;
+  overflow: visible;
+  transition: transform 0.25s ease;
+}
+.heart-slot path {
+  fill: rgba(85, 70, 63, 0.10);
+  stroke: rgba(85, 70, 63, 0.38);
+  stroke-width: 1.5;
+  transition: fill 0.25s ease, stroke 0.25s ease;
+}
+.heart-slot.is-filled path {
+  fill: url(#snakeWinHeart);
+  stroke: #D97385;
+}
+.heart-slot.is-filled {
+  animation: heartPop 0.45s cubic-bezier(0.2, 1.4, 0.4, 1) both;
+  filter: drop-shadow(0 3px 7px rgba(217, 115, 133, 0.38));
+}
+@keyframes heartPop {
+  0% { transform: scale(0.35) rotate(-8deg); }
+  62% { transform: scale(1.28) rotate(3deg); }
+  100% { transform: scale(1) rotate(0deg); }
+}
+.snake-count {
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: var(--c-cocoa-soft);
+  background: var(--glass-bg);
+  backdrop-filter: var(--blur-glass);
+  -webkit-backdrop-filter: var(--blur-glass);
+  border: 1px solid rgba(85, 70, 63, 0.14);
+  border-radius: 999px;
+  padding: 3px 13px;
+  letter-spacing: 0.08em;
+  font-variant-numeric: tabular-nums;
+}
+
+/* --- Bàn chơi: hình chữ nhật bo góc, nền kem sáng, không lưới --- */
+.snake-board {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 4 / 5;
+  border-radius: 26px;
+  background:
+    radial-gradient(rgba(233, 184, 169, 0.10) 1.6px, transparent 1.7px) 0 0 / 34px 34px,
+    radial-gradient(120% 90% at 50% 0%, #FFFBF4 62%, #F9EFE0 100%);
+  border: 1px solid rgba(85, 70, 63, 0.16);
+  box-shadow: var(--shadow-card);
+  overflow: hidden;
+  touch-action: none;           /* vuốt trong khu vực game không cuộn trang */
+  -webkit-user-select: none;
+  user-select: none;
+}
+#snake-canvas {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  display: block;
+  touch-action: none;
+  outline: none;
+  z-index: 1;
+}
+.snake-deco {
+  position: absolute;
+  width: clamp(56px, 17%, 84px);
+  height: auto;
+  pointer-events: none;
+  z-index: 0;
+}
+.snake-deco-tl { top: 8px; left: 8px; }
+.snake-deco-br { bottom: 8px; right: 8px; transform: rotate(8deg); }
+
+/* --- Overlay: sẵn sàng / tạm dừng / thua / hoàn thành --- */
+.snake-overlay {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 18px;
+  background: rgba(255, 251, 244, 0.62);
+  backdrop-filter: blur(5px);
+  -webkit-backdrop-filter: blur(5px);
+  border-radius: inherit;
+  z-index: 3;
+}
+.snake-overlay[hidden] { display: none; }
+.snake-ov-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  text-align: center;
+  max-width: 300px;
+  padding: 20px 24px;
+  border-radius: 20px;
+  background: var(--glass-bg);
+  border: 1px solid rgba(85, 70, 63, 0.14);
+  box-shadow: var(--shadow-card);
+  animation: snakePop 0.4s cubic-bezier(0.2, 1.3, 0.4, 1) both;
+}
+.snake-ov-card[hidden] { display: none; }
+@keyframes snakePop {
+  0% { transform: scale(0.82); opacity: 0; }
+  100% { transform: scale(1); opacity: 1; }
+}
+.snake-ov-title {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: clamp(1.1rem, 5vw, 1.4rem);
+  color: var(--c-cocoa);
+  line-height: 1.35;
+}
+.snake-ov-body {
+  margin: 0;
+  font-size: 0.9rem;
+  color: var(--c-cocoa-soft);
+  line-height: 1.55;
+}
+.snake-ov-heart {
+  width: 34px;
+  height: auto;
+  fill: url(#snakeWinHeart);
+  filter: drop-shadow(0 3px 6px rgba(217, 115, 133, 0.35));
+}
+.snake-ov-burst { width: 150px; height: auto; }
+
+.snake-footnote {
+  margin: 0;
+  font-size: 0.8rem;
+  color: var(--c-cocoa-faint);
+  text-align: center;
+  line-height: 1.5;
+}
+
+/* --- Màn giới thiệu thử thách --- */
+.screen-snake-intro { padding-top: calc(env(safe-area-inset-top, 0px) + 60px); }
+.snake-intro-wrap {
+  margin: auto;
+  width: 100%;
+  max-width: min(clamp(300px, 90vw, 460px), calc((100dvh - 150px) * 0.86));
+  animation: cardIn 0.6s ease both;
+}
+.snake-intro-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 13px;
+  text-align: center;
+  padding: clamp(20px, 4.5vw, 30px) clamp(18px, 4.5vw, 28px);
+  border-radius: 26px;
+  background: var(--glass-bg);
+  backdrop-filter: var(--blur-glass);
+  -webkit-backdrop-filter: var(--blur-glass);
+  border: 1px solid rgba(85, 70, 63, 0.15);
+  box-shadow: var(--shadow-card);
+}
+.snake-intro-art { width: min(62%, 210px); height: auto; }
+.snake-intro-title {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: clamp(1.3rem, 5.6vw, 1.7rem);
+  color: var(--c-cocoa);
+  line-height: 1.3;
+}
+.snake-intro-body {
+  margin: 0;
+  font-size: clamp(0.9rem, 3.6vw, 0.98rem);
+  color: var(--c-cocoa-soft);
+  line-height: 1.65;
+}
+.snake-goal {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  justify-content: center;
+}
+.snake-goal-text {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--c-cocoa);
+  letter-spacing: 0.02em;
+}
+.snake-goal-hearts { display: flex; gap: 5px; }
+.goal-heart {
+  width: 19px;
+  height: auto;
+  color: #D97385;
+  filter: drop-shadow(0 2px 4px rgba(217, 115, 133, 0.30));
+}
+.snake-controls {
+  display: flex;
+  gap: 12px;
+  width: 100%;
+  justify-content: center;
+  flex-wrap: wrap;
+}
+.snake-ctrl {
+  flex: 1 1 150px;
+  max-width: 200px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  padding: 11px 10px;
+  border-radius: 16px;
+  background: rgba(255, 251, 244, 0.7);
+  border: 1px dashed rgba(85, 70, 63, 0.22);
+}
+.kbd-row { display: flex; gap: 5px; }
+kbd {
+  font-family: var(--font-ui);
+  font-size: 0.74rem;
+  font-weight: 700;
+  color: var(--c-cocoa);
+  background: #FFFBF4;
+  border: 1px solid rgba(85, 70, 63, 0.3);
+  border-bottom-width: 2.5px;
+  border-radius: 7px;
+  min-width: 24px;
+  padding: 3px 6px;
+  line-height: 1;
+}
+.snake-ctrl-touch svg { width: 40px; height: 40px; color: var(--c-cocoa-soft); }
+.snake-ctrl-note {
+  font-size: 0.72rem;
+  color: var(--c-cocoa-faint);
+  line-height: 1.45;
+}
+
+/* --- Dọc gọn / ngang điện thoại: giữ toàn bộ bản chơi trong khung nhìn --- */
+@media (orientation: landscape) and (max-height: 520px) {
+  .snake-root { max-width: min(clamp(280px, 60vw, 420px), calc((100dvh - 128px) * 0.8)); gap: 8px; }
+  .screen-snake { padding-top: calc(env(safe-area-inset-top, 0px) + 44px); }
+  .snake-footnote { display: none; }
+}
+
+/* --- Giảm chuyển động: tắt pop, giữ trạng thái --- */
+@media (prefers-reduced-motion: reduce) {
+  .heart-slot.is-filled { animation: none; }
+  .snake-ov-card { animation: none; }
+}
+
+/* ============================================================
+   ULTIMATE — HOÀN THIỆN MƯỢT MÀM
+   1) Viên tim bay từ sân lên ô tiến trình HUD
+   2) Đếm ngược 3-2-1 trước khi chơi
+   3) Ánh sáng champagne theo con trỏ (desktop)
+   ============================================================ */
+.fly-heart {
+  position: fixed;
+  z-index: 60;
+  width: 30px;
+  height: 30px;
+  margin: -15px 0 0 -15px;
+  color: #EFA1AC;
+  pointer-events: none;
+  filter: drop-shadow(0 3px 8px rgba(217, 115, 133, 0.45));
+  transition: transform 0.6s cubic-bezier(0.5, -0.15, 0.6, 1), opacity 0.6s ease;
+  will-change: transform, opacity;
+}
+.fly-heart svg { width: 100%; height: 100%; display: block; }
+
+.snake-countdown {
+  position: relative;
+  width: 58px;
+  height: 58px;
+  margin-top: 2px;
+}
+.snake-countdown::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  border: 2px solid rgba(233, 184, 169, 0.5);
+  animation: cdRing 0.8s ease-out infinite;
+}
+@keyframes cdRing {
+  0% { transform: scale(0.72); opacity: 0.9; }
+  100% { transform: scale(1.08); opacity: 0.15; }
+}
+.cd-num {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: 1.6rem;
+  color: var(--c-cocoa);
+  opacity: 0;
+  animation: cdPop 0.8s ease both;
+  animation-delay: calc(var(--d) * 0.8s);
+}
+@keyframes cdPop {
+  0% { opacity: 0; transform: scale(0.5); }
+  22% { opacity: 1; transform: scale(1.12); }
+  70% { opacity: 1; transform: scale(1); }
+  100% { opacity: 0; transform: scale(0.86); }
+}
+
+.cursor-glow {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 480px;
+  height: 480px;
+  border-radius: 50%;
+  pointer-events: none;
+  z-index: 5;
+  background: radial-gradient(closest-side, rgba(242, 212, 155, 0.22), rgba(233, 184, 169, 0.13) 55%, transparent 74%);
+  mix-blend-mode: soft-light;
+  opacity: 0.85;
+  will-change: transform;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .snake-countdown, .cursor-glow { display: none; }
+  .fly-heart { display: none; }
+}

@@ -1,12 +1,14 @@
-# Quà Tặng Sinh Nhật Crush 🎁
+# Quà Tặng Sinh Nhật Crush 🎁 — bản Ultimate
 
-Một website quà tặng sinh nhật cỡ nhỏ nhưng làm bằng cả trái tim: hộp quà 3D mở nắp, thiệp, lá thư trong phong bì, lời nhắn nhỏ và màn kết thúc có hoa và ánh sáng. Không backend, không analytics, không nhạc nền — chỉ có hiệu ứng âm thanh nhẹ nhàng và một hành trình 2–5 phút dành riêng cho một người.
+Một website quà tặng sinh nhật cỡ nhỏ nhưng làm bằng cả trái tim: hộp quà 3D mở nắp, thiệp, lá thư trong phong bì, lời nhắn nhỏ, minigame Snake và màn kết thúc có hoa và ánh sáng. Bản **Ultimate** thêm **nhạc nền hộp nhạc tự sáng tác** (loop seamless 32 giây, bản quyền sạch), đếm ngược 3-2-1, viên tim bay lên bảng tiến trình khi ăn, cánh hoa trôi trong sân và ánh sáng champagne theo con trỏ trên máy tính. Không backend, không analytics — chỉ có một hành trình 2–5 phút dành riêng cho một người.
 
 > Bản cộng đồng đang dùng **placeholder** (`[Tên người nhận]`, `[Tên người gửi]`, `[Ngày sinh nhật]`) và **văn bản mẫu** cho thư/lời nhắn. Cá nhân hóa bằng cách sửa `config.js` — xem bên dưới.
 
 ## Tính năng
 
-- Hành trình 6 màn hình: Landing (hộp quà 3D) → Mở quà (rung → tháo nơ → mảnh ruy băng văng khỏi hộp → nắp mở kèm "camera punch" → giấy tissue bay ra → ánh sáng + tia sáng quay → thiệp nhỏ trồi ra → pháo lấp lánh) → Thiệp → Lá thư trong phong bì → Lời nhắn nhỏ (mở/đóng/bỏ qua) → Kết thúc (pháo giấy chào mừng, hoa, cánh hoa rơi) → màn tĩnh lặng có bụi sáng.
+- Hành trình 7 màn hình: Landing (hộp quà 3D) → Mở quà (rung → tháo nơ → mảnh ruy băng văng khỏi hộp → nắp mở kèm "camera punch" → giấy tissue bay ra → ánh sáng + tia sáng quay → thiệp nhỏ trồi ra → pháo lấp lánh) → Thiệp → Lá thư trong phong bì → Lời nhắn nhỏ → **Giới thiệu thử thách cuối → Minigame Snake (bắt buộc, không có skip)** → màn kết thúc (3 đợt pháo giấy) → màn tĩnh lặng có bụi sáng.
+- **Nhạc nền hộp nhạc** (mới, Ultimate): waltz 3/4 giọng A major 16 khúc (~32 giây) tự sáng tác và tự tổng hợp bằng dây chuyền chuông modal — loop seamless bằng kỹ thuật wrap-tail (không khoảng lặng giữa hai vòng), phát bằng `AudioBufferSource.loop` chính xác tới từng mẫu. Âm lượng nền rất êm (-24 dBFS), fade-in sau cử chỉ đầu tiên, fade-out khi tắt âm thanh hoặc bấm "Kết thúc", tắt hẳn khi tab ẩn (tiết kiệm pin).
+- **Minigame Snake — cổng bắt buộc vào màn kết thúc** (mục riêng trong đặc tả): thu thập đúng 5 trái tim mới được chuyển sang màn kết. Rắn vẽ tọa độ liên tục trên canvas (không lưới, không pixel art, không emoji), nội suy chuyển động mượt theo delta-time; điều khiển kiểu **lái analog** (không gấp khóc 90° kiểu Nokia): trên máy tính **WASD/mũi tên** đặt góc mục tiêu và đầu rắn quẹo mượt theo cung tròn đến góc đó (nhận diện theo `e.code` nên đúng cả bàn phím AZERTY/QWERTZ…); trên điện thoại **chạm + giữ ở bất kỳ đâu trên sân** — đầu rắn đuổi theo vị trí ngón tay với tốc độ quay giới hạn (Pointer Events + `touch-action:none`, vuốt trong sân không cuộn trang), nhả tay là đi thẳng. Va chạm biên/thân → chỉ chơi lại minigame, tiến trình tim về 0/5, các phần trước giữ nguyên. Không giới hạn thời gian, không skip: cờ mở khóa nằm trong closure của `script.js`, không có biến toàn cục hay đường đi từ DOM. Dừng vòng lặp RAF khi tab ẩn hoặc rời màn, listeners gỡ sạch khi hủy.
 - Hộp quà 3D dựng bằng **CSS 3D thuần**: thân hộp + nắp có độ dày, **mặt trong lòng hộp tối màu tạo chiều sâu thật**, ruy băng và nơ có hình khối, giấy tissue bay khỏi hộp khi mở nắp, tia sáng quay chậm sau hộp lúc nắp mở, và **nghiêng theo con trỏ chuột** (pointer tilt, chỉ trên máy có chuột) — không cần WebGL, không tải thư viện từ CDN.
 - **Animation phủ khắp hành trình, mỗi cái phục vụ cảm xúc**: hộp "thở" và xoay nhẹ liên tục; thiệp lật 3D vào, từng dòng trồi lên nối tiếp, ánh champagne quét qua chữ một lần, cành hoa trang trí được "vẽ nét" dần rồi hoa mới hiện; phong bì nghiêng 3D khi hover, giấy thư trồi lên có góc nghiêng; **lá thư hiện lần lượt từng đoạn**; thẻ lời nhắn nghiêng 3D theo con trỏ; modal pop có perspective; màn kết & màn tĩnh lặng stagger từng lớp. Tất cả tôn trọng `prefers-reduced-motion` và nằm dưới điều khiển của profile hiệu năng (máy yếu bỏ các animation chạy liên tục, giữ nguyên các hiệu ứng một lần).
 - **Hệ thống tự đánh giá cấu hình** (mục VIII của đặc tả): thu thập tín hiệu thiết bị + benchmark nhẹ 42 frame + probe giải mã, chọn 1 trong 3 profile (`Tiết kiệm / Cân bằng / Chất lượng cao`), giám sát runtime có hysteresis, người dùng có thể chọn thủ công (mặc định: Tự động). Mọi profile đều **giữ nguyên tính năng** — chỉ đổi chất lượng kỹ thuật (số hạt, DPR canvas, blur, bóng).
@@ -18,14 +20,15 @@ Một website quà tặng sinh nhật cỡ nhỏ nhưng làm bằng cả trái t
 
 ```
 Qua-Tang-Sinh-Nhat-Crush/
-├── index.html      # khung semantic của cả hành trình
-├── style.css       # thiết kế + hộp quà 3D + responsive + profile hiệu năng
+├── index.html      # khung semantic của cả hành trình (kèm sân minigame)
+├── style.css       # thiết kế + hộp quà 3D + minigame snake + responsive + profile hiệu năng
+├── snake.js        # minigame Snake (toạ độ liên tục, WASD/swipe, khóa màn kết)
 ├── script.js       # hành trình, hệ hiệu năng, âm thanh, hạt
-├── config.js       # ★ TOÀN BỘ nội dung cá nhân hóa nằm ở đây
+├── config.js       # ★ TOÀN BỘ nội dung cá nhân hóa nằm ở đây (kèm văn bản snake)
 ├── README.md
 ├── LICENSE         # MIT; font OFL; audio tự sinh
 └── assets/
-    ├── audio/      # 6 hiệu ứng mp3 (tự tổng hợp, xem LICENSE)
+    ├── audio/      # 8 hiệu ứng + 1 nhạc nền loop mp3 (tự tổng hợp, xem LICENSE)
     ├── fonts/      # Playfair Display + Dancing Script (SIL OFL 1.1, subset vi+latin)
     └── images/     # favicon.svg + apple-touch-icon.png (xem trước khi gửi link)
 ```

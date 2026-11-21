@@ -469,12 +469,16 @@
   })();
 
   /* ============================================================
-     ÂM THANH — CHỈ SOUND EFFECTS, KHÔNG NHẠC NỀN (mục X)
+     ÂM THANH — SFX + NHẠC NỀN HỘP NHẠC (mục X)
      - Chỉ phát sau tương tác hợp lệ (unlock khi bấm nút đầu tiên).
      - File mp3 nằm ở assets/audio/ (tự tổng hợp, bản quyền sạch).
      - Nếu file lỗi/bị chặn (vd mở bằng file://): fallback tổng hợp
        bằng WebAudio — trang web vẫn hoạt động đầy đủ.
      - Giới hạn số hiệu ứng đồng thời, chống phát lặp vô ý.
+     - BGM: hộp nhạc waltz 3/4 tự sáng tác, loop seamless (wrap-tail),
+       âm lượng nền rất êm (-24 dBFS), fade-in sau unlock, fade-out
+       khi tắt âm thanh hoặc bấm "Kết thúc". Tab ẩn -> dừng toàn bộ
+       AudioContext (tiết kiệm pin), quay lại -> chạy tiếp.
      ============================================================ */
   const AudioMan = (function () {
     const FILES = {
@@ -483,17 +487,23 @@
       'sparkle': 'assets/audio/sparkle.mp3',
       'envelope-open': 'assets/audio/envelope-open.mp3',
       'paper': 'assets/audio/paper.mp3',
-      'ending-chime': 'assets/audio/ending-chime.mp3'
+      'ending-chime': 'assets/audio/ending-chime.mp3',
+      'heart-collect': 'assets/audio/heart-collect.mp3',
+      'snake-complete': 'assets/audio/snake-complete.mp3'
     };
-    const GAIN = { 'gift-shake': 0.9, 'gift-open': 0.85, 'sparkle': 0.6, 'envelope-open': 0.85, 'paper': 0.85, 'ending-chime': 0.8 };
-    const MIN_GAP = { 'gift-shake': 250, 'gift-open': 300, 'sparkle': 150, 'envelope-open': 250, 'paper': 250, 'ending-chime': 500 };
+    const GAIN = { 'gift-shake': 0.9, 'gift-open': 0.85, 'sparkle': 0.6, 'envelope-open': 0.85, 'paper': 0.85, 'ending-chime': 0.8, 'heart-collect': 0.7, 'snake-complete': 0.85 };
+    const MIN_GAP = { 'gift-shake': 250, 'gift-open': 300, 'sparkle': 150, 'envelope-open': 250, 'paper': 250, 'ending-chime': 500, 'heart-collect': 120, 'snake-complete': 900 };
     const MAX_ACTIVE = 4;
 
+    /* --- Nhạc nền hộp nhạc (loop seamless) --- */
+    const BGM_FILE = 'assets/audio/bgm-loop.mp3';
+    const BGM_LEVEL = 0.5;                 // nhân thêm trên master (0.9) — nền rất êm
     let ctx = null, master = null, unlocked = false;
     let muted = (store.get('qt-sound') === '0');
     const buffers = {}, failed = {}, lastPlay = {};
     let activeCount = 0;
     let noiseBuf = null;
+    let bgmBuf = null, bgmSrc = null, bgmGain = null, bgmOn = false, bgmWanted = false;
 
     function supported() { return !!(window.AudioContext || window.webkitAudioContext); }
 
@@ -517,6 +527,52 @@
       unlocked = true;
       ensureCtx();
       preload();
+      // nhạc nền khởi động cùng trải nghiệm (sau cử chỉ đầu tiên)
+      if (!muted) bgmStart();
+    }
+
+    /* --- BGM: decode một lần, loop bằng AudioBufferSource (chính xác tới mẫu) --- */
+    function bgmStart() {
+      bgmWanted = true;
+      const c = ctx;
+      if (!c || bgmSrc) return;
+      if (muted) return;
+      if (!bgmBuf) {
+        fetch(BGM_FILE)
+          .then(function (r) { if (!r.ok) throw new Error('HTTP ' + r.status); return r.arrayBuffer(); })
+          .then(function (ab) { return c.decodeAudioData(ab); })
+          .then(function (buf) { bgmBuf = buf; bgmStart(); })
+          .catch(function () { /* không có nhạc nền vẫn chơi được */ });
+        return;
+      }
+      try {
+        bgmSrc = c.createBufferSource();
+        bgmSrc.buffer = bgmBuf;
+        bgmSrc.loop = true;
+        bgmGain = c.createGain();
+        bgmGain.gain.value = 0.0001;
+        bgmGain.gain.setTargetAtTime(BGM_LEVEL, c.currentTime, 0.8);   // fade-in ~2s
+        bgmSrc.connect(bgmGain);
+        bgmGain.connect(master);
+        bgmSrc.onended = function () { if (bgmSrc === null) return; };
+        bgmSrc.start(0);
+        bgmOn = true;
+      } catch (e) { bgmSrc = null; bgmOn = false; }
+    }
+    function bgmStop(fadeSec) {
+      bgmWanted = false;
+      if (!bgmSrc || !ctx) { bgmOn = false; return; }
+      const t = ctx.currentTime;
+      try {
+        bgmGain.gain.cancelScheduledValues(t);
+        bgmGain.gain.setTargetAtTime(0.0001, t, Math.max(0.05, (fadeSec || 1) / 3));
+        const s = bgmSrc;
+        s.stop(t + (fadeSec || 1) + 0.15);
+        s.onended = function () {
+          try { s.disconnect(); } catch (e) { }
+        };
+      } catch (e) { }
+      bgmSrc = null; bgmGain = null; bgmOn = false;
     }
 
     function preload() {
@@ -662,6 +718,15 @@
         } else if (name === 'sparkle') {
           [[1567.98, 0.0, -0.15], [2093.0, 0.095, 0.15], [2349.32, 0.175, 0.0], [2793.83, 0.27, 0.3], [3135.96, 0.38, 0.5]]
             .forEach(function (nt) { bellTone(when + nt[1], nt[0], g * 0.4, 0.3, nt[2]); });
+        } else if (name === 'heart-collect') {
+          hitModal(when, [210, 330, 520], g * 0.5, 0.035, 0, true);
+          bellTone(when + 0.025, 1318.51, g * 0.5, 0.3, 0.05);
+          bellTone(when + 0.11, 1567.98, g * 0.3, 0.22, -0.05);
+        } else if (name === 'snake-complete') {
+          [[1046.5, 0.0, -0.2], [1318.51, 0.13, 0.25], [1567.98, 0.26, 0.1]]
+            .forEach(function (nt) { bellTone(when + nt[1], nt[0], g * 0.4, 0.8, nt[2]); });
+          bellTone(when + 0.44, 2093.0, g * 0.42, 1.3, 0);
+          bellTone(when + 0.44, 523.25, g * 0.3, 1.0, 0);
         } else if (name === 'ending-chime') {
           [[523.25, 0.0, -0.2], [659.26, 0.17, 0.25], [783.99, 0.34, -0.1], [1046.5, 0.62, 0.15]]
             .forEach(function (nt) { bellTone(when + nt[1], nt[0], g * 0.42, 1.5, nt[2]); });
@@ -676,6 +741,8 @@
       muted = m;
       store.set('qt-sound', m ? '0' : '1');
       if (master && ctx) master.gain.setTargetAtTime(m ? 0 : 0.9, ctx.currentTime, 0.02);
+      if (m) { bgmStop(0.4); bgmWanted = true; }   // tắt tiếng nhưng vẫn "muốn" nhạc khi bật lại
+      else bgmStart();
     }
 
     function init() {
@@ -693,11 +760,24 @@
         if (!muted) play('sparkle', { delay: 0.02 }); // phản hồi ngắn khi bật
       });
       document.addEventListener('visibilitychange', function () {
-        if (!document.hidden && ctx && ctx.state === 'suspended') ctx.resume().catch(function () { });
+        if (!ctx) return;
+        if (document.hidden) {
+          if (ctx.state === 'running') ctx.suspend().catch(function () { });  // tab ẩn: dừng toàn bộ âm thanh
+        } else if (ctx.state === 'suspended') ctx.resume().catch(function () { });
       });
     }
 
-    return { init: init, unlock: unlock, play: play, isSupported: supported };
+    if (/(?:\?|&|#)e2e=1/.test(window.location.search + window.location.hash)) {
+      window.__audioTest = {
+        bgmOn: function () { return bgmOn; },
+        muted: function () { return muted; },
+        ctxState: function () { return ctx ? ctx.state : 'none'; }
+      };
+    }
+
+    return { init: init, unlock: unlock, play: play, isSupported: supported,
+      bgmEnd: function () { bgmStop(1.6); },
+      bgmReplay: function () { bgmWanted = true; if (!muted) bgmStart(); } };
   })();
 
   /* ============================================================
@@ -1023,15 +1103,21 @@
 
   /* ============================================================
      HÀNH TRÌNH QUÀ TẶNG (mục IV) — máy trạng thái tuyến tính:
-     landing → opening → card → letter (+notes) → ending → farewell
+     landing → opening → card → letter (+notes) → snake-intro →
+     snake → ending → farewell
+     MÀN KẾT THÚC BỊ KHÓA: chỉ hoàn thành minigame (thu đủ 5 tim)
+     mới mở. Cờ snakeDone nằm trong closure này — không có nút skip,
+     không có biến toàn cục, không đường đi trực tiếp từ DOM.
      ============================================================ */
   const Journey = (function () {
+    const SnakeGame = window.SnakeGame || null;
     const screens = {};
     $$('.screen').forEach(function (s) { screens[s.dataset.screen] = s; });
     const stage = $('.gift-stage');
     const envStage = $('#env-stage');
     let current = 'landing';
     let phase = 'landing';
+    let snakeDone = false;   // chỉ Snake hoàn thành mới đặt được
     const timers = new Set();
 
     function after(ms, fn) {
@@ -1058,7 +1144,13 @@
       if (focusEl) setTimeout(function () { try { focusEl.focus({ preventScroll: true }); } catch (e) { } }, 640);
     }
 
-    function goto(name) { phase = name; show(name); }
+    function goto(name) {
+      // khóa cứng: chưa hoàn thành minigame thì không vào được ending
+      if (name === 'ending' && !snakeDone) name = 'snake-intro';
+      // rời màn snake: dừng vòng lặp game (không tốn tài nguyên)
+      if (current === 'snake' && SnakeGame) SnakeGame.stop();
+      phase = name; show(name);
+    }
 
     /* --- 2. Trình tự mở quà: rung → tháo nơ → ruy băng → nắp mở →
        ánh sáng → thiệp nhỏ trồi ra → hạt lấp lánh → chuyển cảnh --- */
@@ -1193,6 +1285,11 @@
       $('#letter-article').hidden = true;
       $('#notes-block').hidden = true;
       $('#btn-open-gift').disabled = false;
+      // đặt lại minigame: thu hồi khóa ending, dừng vòng lặp game
+      snakeDone = false;
+      if (SnakeGame) SnakeGame.stop();
+      // hộp nhạc quay lại cùng hành trình khi xem lại từ đầu
+      try { AudioMan.bgmReplay(); } catch (e) { }
       phase = 'landing';
       show('landing');
       setTimeout(function () { Particles.startAmbient('landing'); }, 700);
@@ -1212,17 +1309,55 @@
       if (envStage) envStage.addEventListener('click', function (e) {
         if (e.target.closest('.envelope')) openLetter();
       });
+      /* Nút "đi tiếp" giờ dẫn tới THỬ THÁCH CUỐI (snake), không phải ending */
       $('#btn-finish').addEventListener('click', function () {
-        goto('ending');
-        Particles.startAmbient('ending');
-        after(320, function () {
-          Particles.confetti(window.innerWidth / 2, window.innerHeight * 0.58);
-        });
-        AudioMan.play('ending-chime', { delay: 0.25 });
+        AudioMan.play('paper');
+        goto('snake-intro');
       });
+      $('#btn-snake-start').addEventListener('click', function () {
+        if (!SnakeGame) return;
+        AudioMan.unlock();
+        buzz(10);
+        goto('snake');
+        SnakeGame.begin();
+      });
+      /* Mount minigame một lần — hoàn thành 5/5 mới mở khóa màn kết thúc */
+      const snakeRoot = $('#snake-root');
+      if (snakeRoot && SnakeGame) {
+        SnakeGame.mount(snakeRoot, {
+          onCollect: function (n) {
+            AudioMan.play('heart-collect');
+            buzz(12);
+            void n;
+          },
+          onCrash: function () { buzz(26); },
+          onWin: function () {
+            if (snakeDone) return;          // chống kích hoạt trùng lặp
+            snakeDone = true;
+            AudioMan.play('snake-complete', { delay: 0.05 });
+            // để hiệu ứng 5/5 + thông điệp chúc mừng chạy xong tự nhiên rồi chuyển cảnh
+            after(1500, function () {
+              goto('ending');
+              Particles.startAmbient('ending');
+              // 3 đợt pháo giấy chào mừng — trái tim vừa thu được hóa thành ăn mừng
+              AudioMan.play('ending-chime', { delay: 0.25 });
+              after(320, function () {
+                Particles.confetti(window.innerWidth / 2, window.innerHeight * 0.58);
+              });
+              after(950, function () {
+                Particles.confetti(window.innerWidth * 0.24, window.innerHeight * 0.42);
+              });
+              after(1650, function () {
+                Particles.confetti(window.innerWidth * 0.76, window.innerHeight * 0.44);
+              });
+            });
+          }
+        });
+      }
       $('#btn-replay').addEventListener('click', reset);
       $('#btn-replay-2').addEventListener('click', reset);
       $('#btn-end').addEventListener('click', function () {
+        AudioMan.bgmEnd();               // hộp nhạc khép lại cùng màn cuối
         Particles.stopAll();
         goto('farewell');
         after(850, function () { Particles.startAmbient('landing'); });
@@ -1263,4 +1398,28 @@
   try { AudioMan.init(); } catch (e) { try { console.error('[Audio]', e); } catch (e2) { } }
   try { Journey.init(); } catch (e) { try { console.error('[Journey]', e); } catch (e2) { } }
   try { Tilt.init(); } catch (e) { try { console.error('[Tilt]', e); } catch (e2) { } }
+
+  /* Ánh sáng champagne mềm theo con trỏ — chỉ máy tính có chuột chính xác,
+     tắt khi người dùng chọn giảm chuyển động. Thuần trang trí, không chặn tương tác. */
+  (function () {
+    try {
+      if (!window.matchMedia || !window.matchMedia('(pointer: fine) and (hover: hover)').matches) return;
+      if (reduceMotionMQ.matches) return;
+      const el = document.createElement('div');
+      el.className = 'cursor-glow';
+      el.setAttribute('aria-hidden', 'true');
+      document.body.appendChild(el);
+      let gx = window.innerWidth / 2, gy = window.innerHeight / 3, tx = gx, ty = gy, raf = 0;
+      const tick = function () {
+        raf = 0;
+        gx += (tx - gx) * 0.14; gy += (ty - gy) * 0.14;
+        el.style.transform = 'translate(' + Math.round(gx - 240) + 'px,' + Math.round(gy - 240) + 'px)';
+        if (Math.abs(tx - gx) + Math.abs(ty - gy) > 0.8) raf = requestAnimationFrame(tick);
+      };
+      window.addEventListener('pointermove', function (e) {
+        tx = e.clientX; ty = e.clientY;
+        if (!raf) raf = requestAnimationFrame(tick);
+      }, { passive: true });
+    } catch (e) { /* trang trí — lỗi thì bỏ qua */ }
+  })();
 })();
