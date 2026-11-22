@@ -1,16 +1,4 @@
-/* ============================================================
-   UNWRAP COMMUNITY — CẤU HÌNH NỘI DUNG
-   ------------------------------------------------------------
-   MỌI nội dung cá nhân hóa nằm trong file này.
-   KHÔNG cần sửa index.html / style.css / script.js để đổi nội dung.
 
-   PHIÊN BẢN CỘNG ĐỒNG: các trường tên/ngày đang là placeholder
-   đúng theo đặc tả. Nội dung thư & lời nhắn là LỜI CHÚC SINH NHẬT
-   TRUNG TÍNH (không cá nhân hóa, không tình cảm riêng tư).
-
-   ⚠ RIÊNG TƯ: nếu muốn cá nhân hóa, KHÔNG commit file đã điền lên
-   repository công khai. Xem README.md → mục "Quyền riêng tư".
-   ============================================================ */
 
 window.GIFT_CONFIG = {
 
@@ -31,7 +19,7 @@ window.GIFT_CONFIG = {
     kicker: "Một món quà sinh nhật nhỏ dành cho {name}.",
     // {name} sẽ được thay bằng recipientName tự động
     greeting: "Có một món quà nhỏ dành cho {name}.",
-    sub: "Một chút bất ngờ nhỏ dành cho ngày đặc biệt của bạn.",
+    sub: "Một chút bất ngờ nhỏ dành cho ngày đặc biệt của em.",
     // Chip nhỏ dưới dòng phụ. Nếu không set birthDateISO thì luôn dùng chipOtherwise.
     chipOnBirthday: "Hôm nay, đúng ngày này — món quà được phép mở rồi đấy.",
     chipOtherwise: "Món quà nhỏ này đã được chuẩn bị, chỉ chờ đúng hôm nay thôi.",
@@ -42,7 +30,7 @@ window.GIFT_CONFIG = {
   card: {
     eyebrow: "Thiệp chúc mừng",
     title: "Chúc mừng sinh nhật {name}!",
-    message: "Chúc bạn có một ngày sinh nhật thật vui vẻ, nhận được nhiều lời chúc và những món quà ý nghĩa. Mong tuổi mới sẽ mang đến cho bạn thật nhiều niềm vui và may mắn!",
+    message: "Chúc em có một ngày sinh nhật thật vui vẻ, nhận được nhiều lời chúc và những món quà ý nghĩa!",
     toLetterButton: "Có một lá thư dành cho bạn"
   },
 
@@ -52,8 +40,7 @@ window.GIFT_CONFIG = {
     title: "Gửi {name},",
     // Mỗi phần tử mảng = một đoạn văn.
     paragraphs: [
-      "Chúc mừng sinh nhật bạn!",
-      "Chúc bạn bước sang tuổi mới luôn mạnh khỏe, vui vẻ và gặp thật nhiều may mắn.",
+      "Chúc mừng sinh nhật em!",
       "Chúc bạn học tập thật tốt, đạt được những kết quả như mong muốn và luôn thuận lợi trong những dự định sắp tới.",
       "Mong bạn ngày càng xinh đẹp, tự tin, luôn giữ được nụ cười tươi và có thật nhiều niềm vui bên gia đình, bạn bè.",
       "Chúc bạn có một ngày sinh nhật thật đáng nhớ và một tuổi mới thật nhiều điều tốt đẹp!"
@@ -93,7 +80,7 @@ window.GIFT_CONFIG = {
     goalText: "Mục tiêu:",
     startLabel: "Bắt đầu thử thách",
     hudTitle: "Thu thập 5 trái tim",
-    hint: "Không giới hạn thời gian — đi chậm mà chắc nhé.",
+    hint: "Không giới hạn thời gian.",
     controlsKbd: "Trên máy tính: dùng WASD hoặc các phím mũi tên để đổi hướng",
     controlsTouch: "Trên điện thoại: chạm và vuốt tại bất kỳ đâu trên sân; nếu lệch hướng, rắn tự chỉnh về hướng gần nhất. Có thể đổi sang 4 nút mũi tên bên dưới.",
     controlsLabel: "Điều khiển:",
@@ -102,8 +89,8 @@ window.GIFT_CONFIG = {
     ovReady: "Sẵn sàng…",
     ovPaused: "Tạm dừng",
     resumeLabel: "Chơi tiếp",
-    ovCrashTitle: "Chạm nhẹ quá rồi!",
-    ovCrashBody: "Tiến trình tim quay về 0/5 — thử lại nhé, lần này chắc chắn sẽ được.",
+    ovCrashTitle: "Thua rùii",
+    ovCrashBody: "Tiến trình tim quay về 0/5 — thử lại nha, lần này chắc chắn sẽ được.",
     retryLabel: "Chơi lại từ đầu",
     ovWinTitle: "Tuyệt vời — đủ 5/5!",
     ovWinBody: "Điều cuối cùng đang mở ra…"
