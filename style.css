@@ -1,5 +1,5 @@
 /* ============================================================
-   QUA-TANG-SINH-NHAT-CRUSH — STYLE
+   UNWRAP COMMUNITY — STYLE
    Premium pastel · Soft UI · Glassmorphism tiết chế
    Hai bố cục có chủ đích: mobile portrait & desktop landscape
    (+ bố cục riêng cho điện thoại/tablet ngang)
@@ -1203,28 +1203,10 @@ svg { display: inline-block; vertical-align: middle; }
 #fx-canvas { position: fixed; inset: 0; z-index: 30; pointer-events: none; width: 100%; height: 100%; }
 
 /* ---------- Điều chỉnh theo profile hiệu năng ----------
-   Chỉ giảm CHẤT LƯỢNG kỹ thuật, giữ nguyên toàn bộ tính năng. */
-html[data-perf="efficient"] .gift-bob,
-html[data-perf="efficient"] .sway,
-html[data-perf="efficient"] .env-hint,
-html[data-perf="efficient"] .envelope,
-html[data-perf="efficient"] .btn-primary::after,
-html[data-perf="efficient"] body::after,
-html[data-perf="efficient"] .flowers-wrap::before,
-html[data-rt="low"] .gift-bob,
-html[data-rt="low"] .sway,
-html[data-rt="low"] .envelope,
-html[data-rt="low"] body::after,
-html[data-rt="low"] .flowers-wrap::before { animation: none; }
-html[data-perf="efficient"] .flowers-wrap::before,
-html[data-rt="low"] .flowers-wrap::before,
-html[data-perf="efficient"] .gift-rays,
-html[data-rt="low"] .gift-rays { display: none; }
-/* Máy yếu: thiệp chỉ còn hiệu ứng vào một lần, không trôi liên tục */
-html[data-perf="efficient"] .screen-card.is-active .card,
-html[data-rt="low"] .screen-card.is-active .card { animation: cardIn 0.8s cubic-bezier(0.3, 1.12, 0.5, 1) both; }
-html[data-perf="efficient"] .gift-shadow { filter: blur(5px); }
-html[data-rt="low"] .gift-shadow { filter: blur(4px); }
+   Chỉ giảm CHẤT LƯỢNG kỹ thuật (độ mờ bóng đổ), KHÔNG tắt animation
+   và KHÔNG ẩn hiệu ứng trang trí — mọi tính năng đều được giữ nguyên. */
+html[data-perf="efficient"] .gift-shadow { filter: blur(6px); }
+html[data-rt="low"] .gift-shadow { filter: blur(5px); }
 
 /* ---------- Tôn trọng prefers-reduced-motion ----------
    Rút gọn chuyển động nhưng GIỜ NGUYÊN toàn bộ màn hình & nội dung. */

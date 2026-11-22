@@ -1,5 +1,5 @@
   /* ============================================================
-     QUA-TANG-SINH-NHAT-CRUSH — LOGIC
+     UNWRAP COMMUNITY — LOGIC
      Gồm: nạp cấu hình, hệ thống tự đánh giá & điều chỉnh hiệu năng
      (mục VIII), âm thanh SFX (mục X), hạt lấp lánh + pháo giấy,
      tilt 3D theo con trỏ, và hành trình quà tặng (mục IV).
@@ -50,11 +50,11 @@
   // Dự phòng nếu config.js thiếu — trang vẫn chạy với placeholder.
   const DEFAULTS = {
     recipientName: '[Tên người nhận]', senderName: '[Tên người gửi]', birthDateLabel: '[Ngày sinh nhật]', birthDateISO: '',
-    landing: { kicker: '', greeting: 'Có một món quà nhỏ dành cho {name}.', sub: 'Một điều nho nhỏ đã được chuẩn bị từ trước — dành riêng cho bạn.', chipOnBirthday: '', chipOtherwise: '', openButton: 'Mở quà nhé!' },
-    card: { eyebrow: 'Thiệp chúc mừng', title: 'Chúc mừng sinh nhật, {name}!', message: '…', toLetterButton: 'Có một lá thư dành cho bạn' },
-    letter: { envelopeHint: 'Chạm vào phong bì để mở', title: 'Gửi {name},', paragraphs: ['…'], closing: 'Chúc mừng sinh nhật.', signatureLabel: 'Thân mến,', postscript: '' },
-    notes: { sectionTitle: 'Vài lời nhắn nhỏ', sectionHint: '', openLabel: 'Lời nhắn', items: [], skipLabel: 'Tiếp tục' },
-    ending: { title: 'Và một điều cuối cùng…', message: '', invite: '', signature: '— {sender}', replayButton: 'Xem lại từ đầu', endButton: 'Kết thúc' },
+    landing: { kicker: '', greeting: 'Có một món quà nhỏ dành cho {name}.', sub: 'Một chút bất ngờ nhỏ dành cho ngày đặc biệt của bạn.', chipOnBirthday: '', chipOtherwise: '', openButton: 'Mở quà nhé!' },
+    card: { eyebrow: 'Thiệp chúc mừng', title: 'Chúc mừng sinh nhật {name}!', message: 'Chúc bạn có một ngày sinh nhật thật vui vẻ và một tuổi mới thật nhiều niềm vui, may mắn!', toLetterButton: 'Có một lá thư dành cho bạn' },
+    letter: { envelopeHint: 'Chạm vào phong bì để mở', title: 'Gửi {name},', paragraphs: ['Chúc mừng sinh nhật bạn!'], closing: 'Chúc mừng sinh nhật!', signatureLabel: 'Thân mến,', postscript: '' },
+    notes: { sectionTitle: 'Vài lời nhắn nhỏ', sectionHint: 'Mở nếu bạn muốn — không bắt buộc đâu.', openLabel: 'Lời nhắn', items: [], skipLabel: 'Đọc rồi, đi tiếp nhé' },
+    ending: { title: 'Một lần nữa, chúc mừng sinh nhật bạn!', message: 'Chúc bạn tuổi mới thật nhiều sức khỏe, niềm vui, may mắn và thành công!', invite: '', signature: '— {sender}', replayButton: 'Xem lại từ đầu', endButton: 'Kết thúc' },
     farewell: { title: 'Hẹn một ngày thật đẹp nhé.', sub: '', replayHint: 'mở lại từ đầu' },
     ui: {
       soundOn: 'Bật âm thanh hiệu ứng', soundOff: 'Tắt âm thanh hiệu ứng',
@@ -469,16 +469,14 @@
   })();
 
   /* ============================================================
-     ÂM THANH — SFX + NHẠC NỀN HỘP NHẠC (mục X)
+     ÂM THANH — CHỈ HIỆU ỨNG NGẮN (SFX)
      - Chỉ phát sau tương tác hợp lệ (unlock khi bấm nút đầu tiên).
      - File mp3 nằm ở assets/audio/ (tự tổng hợp, bản quyền sạch).
      - Nếu file lỗi/bị chặn (vd mở bằng file://): fallback tổng hợp
        bằng WebAudio — trang web vẫn hoạt động đầy đủ.
      - Giới hạn số hiệu ứng đồng thời, chống phát lặp vô ý.
-     - BGM: hộp nhạc waltz 3/4 tự sáng tác, loop seamless (wrap-tail),
-       âm lượng nền rất êm (-24 dBFS), fade-in sau unlock, fade-out
-       khi tắt âm thanh hoặc bấm "Kết thúc". Tab ẩn -> dừng toàn bộ
-       AudioContext (tiết kiệm pin), quay lại -> chạy tiếp.
+     - KHÔNG có nhạc nền: chỉ phát sfx theo hành động, mặc định
+       muted cho tới khi người dùng chủ động bật.
      ============================================================ */
   const AudioMan = (function () {
     const FILES = {
@@ -495,15 +493,13 @@
     const MIN_GAP = { 'gift-shake': 250, 'gift-open': 300, 'sparkle': 150, 'envelope-open': 250, 'paper': 250, 'ending-chime': 500, 'heart-collect': 120, 'snake-complete': 900 };
     const MAX_ACTIVE = 4;
 
-    /* --- Nhạc nền hộp nhạc (loop seamless) --- */
-    const BGM_FILE = 'assets/audio/bgm-loop.mp3';
-    const BGM_LEVEL = 0.3;                 // nhân thêm trên master (0.75) — nền lullaby rất êm
     let ctx = null, master = null, unlocked = false;
-    let muted = (store.get('qt-sound') === '0');
+    // Mặc định TẮT tiếng cho tới khi người dùng chủ động bật (setMuted ghi '1').
+    // Chưa có key → store.get() trả null → null !== '1' → muted = true.
+    let muted = (store.get('qt-sound') !== '1');
     const buffers = {}, failed = {}, lastPlay = {};
     let activeCount = 0;
     let noiseBuf = null;
-    let bgmBuf = null, bgmSrc = null, bgmGain = null, bgmOn = false, bgmWanted = false;
 
     function supported() { return !!(window.AudioContext || window.webkitAudioContext); }
 
@@ -527,52 +523,6 @@
       unlocked = true;
       ensureCtx();
       preload();
-      // nhạc nền khởi động cùng trải nghiệm (sau cử chỉ đầu tiên)
-      if (!muted) bgmStart();
-    }
-
-    /* --- BGM: decode một lần, loop bằng AudioBufferSource (chính xác tới mẫu) --- */
-    function bgmStart() {
-      bgmWanted = true;
-      const c = ctx;
-      if (!c || bgmSrc) return;
-      if (muted) return;
-      if (!bgmBuf) {
-        fetch(BGM_FILE)
-          .then(function (r) { if (!r.ok) throw new Error('HTTP ' + r.status); return r.arrayBuffer(); })
-          .then(function (ab) { return c.decodeAudioData(ab); })
-          .then(function (buf) { bgmBuf = buf; bgmStart(); })
-          .catch(function () { /* không có nhạc nền vẫn chơi được */ });
-        return;
-      }
-      try {
-        bgmSrc = c.createBufferSource();
-        bgmSrc.buffer = bgmBuf;
-        bgmSrc.loop = true;
-        bgmGain = c.createGain();
-        bgmGain.gain.value = 0.0001;
-        bgmGain.gain.setTargetAtTime(BGM_LEVEL, c.currentTime, 0.8);   // fade-in ~2s
-        bgmSrc.connect(bgmGain);
-        bgmGain.connect(master);
-        bgmSrc.onended = function () { if (bgmSrc === null) return; };
-        bgmSrc.start(0);
-        bgmOn = true;
-      } catch (e) { bgmSrc = null; bgmOn = false; }
-    }
-    function bgmStop(fadeSec) {
-      bgmWanted = false;
-      if (!bgmSrc || !ctx) { bgmOn = false; return; }
-      const t = ctx.currentTime;
-      try {
-        bgmGain.gain.cancelScheduledValues(t);
-        bgmGain.gain.setTargetAtTime(0.0001, t, Math.max(0.05, (fadeSec || 1) / 3));
-        const s = bgmSrc;
-        s.stop(t + (fadeSec || 1) + 0.15);
-        s.onended = function () {
-          try { s.disconnect(); } catch (e) { }
-        };
-      } catch (e) { }
-      bgmSrc = null; bgmGain = null; bgmOn = false;
     }
 
     function preload() {
@@ -741,8 +691,6 @@
       muted = m;
       store.set('qt-sound', m ? '0' : '1');
       if (master && ctx) master.gain.setTargetAtTime(m ? 0 : 0.9, ctx.currentTime, 0.02);
-      if (m) { bgmStop(0.4); bgmWanted = true; }   // tắt tiếng nhưng vẫn "muốn" nhạc khi bật lại
-      else bgmStart();
     }
 
     function init() {
@@ -769,15 +717,12 @@
 
     if (/(?:\?|&|#)e2e=1/.test(window.location.search + window.location.hash)) {
       window.__audioTest = {
-        bgmOn: function () { return bgmOn; },
         muted: function () { return muted; },
         ctxState: function () { return ctx ? ctx.state : 'none'; }
       };
     }
 
-    return { init: init, unlock: unlock, play: play, isSupported: supported,
-      bgmEnd: function () { bgmStop(1.6); },
-      bgmReplay: function () { bgmWanted = true; if (!muted) bgmStart(); } };
+    return { init: init, unlock: unlock, play: play, isSupported: supported };
   })();
 
   /* ============================================================
@@ -882,7 +827,7 @@
     }
     function applyProfile(p) {
       const map = {
-        efficient: { burst: 42, ambient: 2.2, landing: 0, max: 60, dpr: 1 },
+        efficient: { burst: 42, ambient: 2.4, landing: 0.9, max: 64, dpr: 1 },
         balanced: { burst: 84, ambient: 4.5, landing: 1.4, max: 120, dpr: 1.5 },
         high: { burst: 150, ambient: 7.5, landing: 2.4, max: 200, dpr: 2 }
       };
@@ -1103,10 +1048,11 @@
 
   /* ============================================================
      HÀNH TRÌNH QUÀ TẶNG (mục IV) — máy trạng thái tuyến tính:
-     landing → opening → card → letter (+notes) → ending → farewell
-     (v9: thử thách snake đã NGẮT KHỎI LUỒNG theo yêu cầu — màn kết thúc mở
-     cho mọi người. Code snake vẫn còn nhưng không màn nào dẫn tới nữa; muốn
-     bật lại chỉ cần trỏ btn-finish về goto('snake-intro') và khôi phục gate.)
+     landing → opening → card → letter (+notes) → snake-intro → snake
+     → ending → farewell
+     (Snake là minigame BẮT BUỘC: ending chỉ mở khi thắng đủ 5/5 tim.
+     Gate được kiểm soát tập trung trong goto()/enterEnding(), không
+     dựa vào việc ẩn/hiện nút.)
      ============================================================ */
   const Journey = (function () {
     const SnakeGame = window.SnakeGame || null;
@@ -1117,6 +1063,7 @@
     let current = 'landing';
     let phase = 'landing';
     let snakeDone = false;   // chỉ Snake hoàn thành mới đặt được
+    let endingEntered = false; // chống kích hoạt ending nhiều lần
     const timers = new Set();
 
     function after(ms, fn) {
@@ -1148,13 +1095,18 @@
     }
 
     function goto(name) {
+      // GATE tập trung: chỉ vào 'ending' khi đã thắng Snake (5/5).
+      // Mọi đường chuyển màn hình thông thường đều đi qua đây.
+      if (name === 'ending' && !snakeDone) return;
       // rời màn snake: dừng vòng lặp game (không tốn tài nguyên)
       if (current === 'snake' && SnakeGame) SnakeGame.stop();
       phase = name; show(name);
     }
 
-    /* --- VÀO MÀN KẾT THÚC (v9): mở cho mọi người, kèm ăn mừng pháo giấy --- */
+    /* --- VÀO MÀN KẾT THÚC: chỉ mở khi đã thắng Snake, chống mở lặp --- */
     function enterEnding() {
+      if (!snakeDone || endingEntered) return;
+      endingEntered = true;
       goto('ending');
       Particles.startAmbient('ending');
       AudioMan.play('ending-chime', { delay: 0.25 });
@@ -1304,9 +1256,8 @@
       $('#btn-open-gift').disabled = false;
       // đặt lại minigame: thu hồi khóa ending, dừng vòng lặp game
       snakeDone = false;
+      endingEntered = false;
       if (SnakeGame) SnakeGame.stop();
-      // hộp nhạc quay lại cùng hành trình khi xem lại từ đầu
-      try { AudioMan.bgmReplay(); } catch (e) { }
       phase = 'landing';
       show('landing');
       setTimeout(function () { Particles.startAmbient('landing'); }, 700);
@@ -1360,7 +1311,6 @@
       $('#btn-replay').addEventListener('click', reset);
       $('#btn-replay-2').addEventListener('click', reset);
       $('#btn-end').addEventListener('click', function () {
-        AudioMan.bgmEnd();               // hộp nhạc khép lại cùng màn cuối
         Particles.stopAll();
         goto('farewell');
         after(850, function () { Particles.startAmbient('landing'); });
@@ -1386,7 +1336,7 @@
       buildModal();
       bindEvents();
       setTimeout(function () { Perf.startMonitor(); }, 2200);
-      // bụi lấp lánh khẽ ở màn đầu — tự tắt theo profile (efficient = 0)
+      // bụi lấp lánh khẽ ở màn đầu — mọi profile đều giữ lại, Efficient chỉ giảm mật độ
       setTimeout(function () { Particles.startAmbient('landing'); }, 900);
     }
 
