@@ -1,12 +1,23 @@
+/* ============================================================
+   UNWRAP — CẤU HÌNH NỘI DUNG LỜI CHÚC SINH NHẬT
+   ------------------------------------------------------------
+   MỌI nội dung cá nhân hóa nằm trong file này.
+   KHÔNG cần sửa index.html / style.css / script.js để đổi nội dung.
 
+   Token {name} / {sender} được thay tự động từ recipientName / senderName.
+   Giữ nguyên token để dễ đổi tên sau này.
+
+   ⚠ RIÊNG TƯ: nếu điền tên thật, KHÔNG commit file đã điền lên
+   repository công khai. Xem README.md → mục "Quyền riêng tư".
+   ============================================================ */
 
 window.GIFT_CONFIG = {
 
-  /* ---------- DANH TÍNH (placeholder — GIỮ NGUYÊN trong bản Community) ---------- */
-  // [Tên người nhận] — xuất hiện ở lời chào, thiệp, thư, kết thúc
-  recipientName: "[Tên người nhận]",
-  // [Tên người gửi] — ký cuối lá thư + màn hình kết thúc
-  senderName: "[Tên người gửi]",
+  /* ---------- DANH TÍNH (placeholder — giữ nguyên token) ---------- */
+  // [Tên người nhận] — xuất hiện ở lời chào, thiệp
+  recipientName: "{name}",
+  // [Tên người gửi] — ký cuối lá thư + màn hình tạm biệt
+  senderName: "{sender}",
   // [Ngày sinh nhật] — hiển thị trên thiệp & dấu tròn trên lá thư, ví dụ: "20 tháng 11"
   birthDateLabel: "[Ngày sinh nhật]",
   // Ngày sinh nhật thật dạng "MM-DD" (vd "12-12" = 12 tháng 12). ĐỂ TRỐNG nếu không muốn.
@@ -16,64 +27,70 @@ window.GIFT_CONFIG = {
   /* ---------- 1. MÀN HÌNH ĐẦU (Hộp quà) ---------- */
   landing: {
     // Dòng nhỏ phía trên lời chào. {name} = tên người nhận. Để trống "" để ẩn.
-    kicker: "Một món quà sinh nhật nhỏ dành cho {name}.",
-    // {name} sẽ được thay bằng recipientName tự động
-    greeting: "Có một món quà nhỏ dành cho {name}.",
-    sub: "Một chút bất ngờ nhỏ dành cho ngày đặc biệt của em.",
+    kicker: "Một món quà nhỏ dành riêng cho {name}.",
+    greeting: "Có một món quà sinh nhật dành cho em nè.",
+    sub: "Anh có chuẩn bị một chút bất ngờ cho em. Không biết em có thích không, nhưng anh hy vọng khi mở món quà này ra, em sẽ thấy vui.",
     // Chip nhỏ dưới dòng phụ. Nếu không set birthDateISO thì luôn dùng chipOtherwise.
     chipOnBirthday: "Hôm nay, đúng ngày này — món quà được phép mở rồi đấy.",
     chipOtherwise: "Món quà nhỏ này đã được chuẩn bị, chỉ chờ đúng hôm nay thôi.",
-    openButton: "Mở quà nhé!"
+    openButton: "Mở quà thôi!"
   },
 
-  /* ---------- 3. THIỆP SINH NHẬT ---------- */
+  /* ---------- 2. THIỆP SINH NHẬT ---------- */
   card: {
     eyebrow: "Thiệp chúc mừng",
-    title: "Chúc mừng sinh nhật {name}!",
-    message: "Chúc em có một ngày sinh nhật thật vui vẻ, nhận được nhiều lời chúc và những món quà ý nghĩa!",
-    toLetterButton: "Có một lá thư dành cho bạn"
+    title: "Chúc mừng sinh nhật {name}! 🎉",
+    message: "Hôm nay là sinh nhật em rồi! Chúc em có một ngày thật vui, nhận được nhiều quà và thật nhiều lời chúc. Mong là hôm nay sẽ có thật nhiều điều dễ thương đến với em.",
+    toLetterButton: "Đọc thư nè"
   },
 
-  /* ---------- 4. LÁ THƯ (Phong bì) ---------- */
+  /* ---------- 3. LÁ THƯ (Phong bì) ---------- */
   letter: {
     envelopeHint: "Chạm vào phong bì để mở",
-    title: "Gửi {name},",
+    title: "Anh có vài điều muốn gửi em...",
     // Mỗi phần tử mảng = một đoạn văn.
     paragraphs: [
-      "Chúc mừng sinh nhật em!",
-      "Chúc bạn học tập thật tốt, đạt được những kết quả như mong muốn và luôn thuận lợi trong những dự định sắp tới.",
-      "Mong bạn ngày càng xinh đẹp, tự tin, luôn giữ được nụ cười tươi và có thật nhiều niềm vui bên gia đình, bạn bè.",
-      "Chúc bạn có một ngày sinh nhật thật đáng nhớ và một tuổi mới thật nhiều điều tốt đẹp!"
+      "Sinh nhật vui vẻ nha em!",
+      "Vậy là em lại thêm một tuổi mới rồi. Anh chúc em luôn khỏe mạnh, vui vẻ, học hành thật tốt và gặp nhiều may mắn trong mọi chuyện.",
+      "Mong em lúc nào cũng tự tin, ngày càng xinh đẹp và đạt được những điều em đang cố gắng. Có chuyện vui thì cứ vui thật nhiều, còn nếu có ngày nào không vui thì mong mọi chuyện cũng sớm ổn hơn.",
+      "Anh hy vọng tụi mình sẽ còn có thêm nhiều kỷ niệm đẹp cùng nhau. Cảm ơn em vì đã xuất hiện và khiến cuộc sống của anh có thêm nhiều điều đặc biệt.",
+      "Anh không biết món quà này có đúng ý em không, nhưng anh đã dành thời gian chuẩn bị nó vì muốn dành tặng em một điều gì đó thật riêng.",
+      "Một lần nữa, chúc em sinh nhật vui vẻ. Anh thương em!"
     ],
-    closing: "Chúc mừng sinh nhật!",
-    signatureLabel: "Thân mến,",
+    // Không dùng dòng chốt riêng — đoạn cuối của thư đã là lời kết.
+    closing: "",
+    signatureLabel: "Gửi em,",
     // P/S hiện dưới chữ ký. Để trống "" để ẩn.
     postscript: ""
   },
 
-  /* ---------- 5. LỜI NHẮN NHỎ (có thể bỏ qua) ---------- */
+  /* ---------- 4. NHỮNG LỜI CHÚC NHỎ ---------- */
   notes: {
-    sectionTitle: "Vài lời nhắn nhỏ",
-    sectionHint: "Mở nếu bạn muốn — không bắt buộc đâu.",
-    openLabel: "Lời nhắn",
+    sectionTitle: "Những lời chúc nhỏ",
+    sectionHint: "Mở nếu em muốn — không bắt buộc đâu.",
+    openLabel: "Lời chúc",
     items: [
       {
-        title: "Chúc học tập thật tốt",
-        body: "Chúc bạn luôn chăm chỉ, học tập tiến bộ và đạt được nhiều kết quả tốt. Mong những bài kiểm tra và kỳ thi sắp tới đều thuận lợi nhé!"
+        title: "Học hành thật tốt",
+        body: "Chúc em học ngày càng tốt hơn, kiểm tra gặp đề dễ, thi cử thuận lợi và đạt được kết quả mà em mong muốn. Nhớ đừng thức khuya làm bài nhiều quá nha!"
       },
       {
-        title: "Luôn xinh đẹp và vui vẻ",
-        body: "Chúc bạn ngày càng xinh đẹp, luôn tự tin và yêu đời. Mong mỗi ngày đều có thật nhiều niềm vui, tiếng cười và những điều khiến bạn hạnh phúc!"
+        title: "Ngày càng xinh đẹp",
+        body: "Chúc em ngày càng xinh đẹp, luôn tự tin và vui vẻ với chính mình. Mà thật ra trong mắt anh, em đã đáng yêu lắm rồi."
       },
       {
-        title: "Thật nhiều may mắn",
-        body: "Chúc bạn luôn gặp nhiều may mắn, mọi việc đều suôn sẻ. Mong những dự định sắp tới đều đạt được kết quả tốt đẹp!"
+        title: "Luôn vui vẻ",
+        body: "Mong em có thật nhiều ngày vui, gặp được nhiều chuyện thú vị và luôn có người để chia sẻ những chuyện nhỏ nhặt trong ngày."
+      },
+      {
+        title: "Gặp nhiều may mắn",
+        body: "Chúc em làm gì cũng thuận lợi, những dự định sắp tới đều suôn sẻ. Nếu có chuyện khó khăn thì cũng mong em sớm tìm được cách giải quyết."
       }
     ],
     skipLabel: "Đọc rồi, đi tiếp nhé"
   },
 
-  /* ---------- 5b+6. THỬ THÁCH CUỐI: SNAKE (bắt buộc để đến màn kết thúc) ---------- */
+  /* ---------- 5. THỬ THÁCH CUỐI: SNAKE (bắt buộc để đến màn kết thúc) ---------- */
   snake: {
     introTitle: "Một thử thách nhỏ trước điều cuối cùng",
     introBody: "Điều cuối cùng nằm sau một trò chơi nhỏ: điều khiển chú rắn pastel, thu thập đủ 5 trái tim là điều đặc biệt sẽ hiện ra. Chạm biên hay chạm thân là phải chơi lại — không sao, nhẹ nhàng thôi.",
@@ -98,20 +115,22 @@ window.GIFT_CONFIG = {
 
   /* ---------- 6. MÀN HÌNH KẾT THÚC ---------- */
   ending: {
-    title: "Một lần nữa, chúc mừng sinh nhật bạn!",
-    message: "Chúc bạn tuổi mới thật nhiều sức khỏe, niềm vui, may mắn và thành công. Mong rằng hôm nay sẽ là một ngày thật vui vẻ và đáng nhớ!",
+    title: "Em mở hết quà rồi đó!",
+    // Xuống dòng bằng \n\n — CSS .ending-message dùng white-space: pre-line.
+    message: "Vậy là em đã mở hết món quà anh chuẩn bị rồi. Anh hy vọng em thích nó và có thêm một chút niềm vui trong ngày hôm nay.\n\nChúc cô gái của anh có một tuổi mới thật vui và thật nhiều điều đáng nhớ. ❤️",
     // Lời mời cuối — để trống "" để ẩn hoàn toàn.
     invite: "",
-    signature: "— {sender}",
+    // Không ký ở màn kết (chữ ký nằm ở màn tạm biệt).
+    signature: "",
     replayButton: "Xem lại từ đầu",
     endButton: "Kết thúc"
   },
 
   /* ---------- Màn hình "đã kết thúc" (sau nút Kết thúc) ---------- */
   farewell: {
-    title: "Hẹn một ngày thật đẹp nhé.",
-    // Dòng nhỏ dưới chữ ký. Để trống "" để ẩn.
-    sub: "Cảm ơn vì đã mở hết món quà.",
+    title: "Đến đây là hết món quà rồi.",
+    sub: "Cảm ơn em đã dành thời gian mở món quà nhỏ này. Chúc em sinh nhật vui vẻ, luôn khỏe mạnh, học tốt và cười thật nhiều nha.",
+    sign: "{sender}",
     replayHint: "mở lại từ đầu"
   },
 

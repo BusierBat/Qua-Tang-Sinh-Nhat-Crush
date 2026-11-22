@@ -1,5 +1,5 @@
 /* ============================================================
-   UNWRAP COMMUNITY — STYLE
+   UNWRAP — STYLE
    Premium pastel · Soft UI · Glassmorphism tiết chế
    Hai bố cục có chủ đích: mobile portrait & desktop landscape
    (+ bố cục riêng cho điện thoại/tablet ngang)
@@ -1166,6 +1166,8 @@ svg { display: inline-block; vertical-align: middle; }
   line-height: 1.8;
   max-width: 52ch;
   margin: 6px 0 0;
+  /* config.ending.message dùng \n\n để tách 2 đoạn — giữ nguyên khi render */
+  white-space: pre-line;
 }
 .ending-sign { font-family: var(--font-script); font-weight: 600; font-size: clamp(1.5rem, 3.6vw, 2rem); margin: 10px 0 4px; }
 .ending-invite {

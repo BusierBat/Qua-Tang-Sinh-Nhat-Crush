@@ -1,8 +1,8 @@
-# Unwrap Community 🎁 — bản Community
+# Unwrap 🎁 — quà tặng sinh nhật
 
-Một website quà tặng sinh nhật cỡ nhỏ: hộp quà 3D mở nắp, thiệp, lá thư trong phong bì, lời nhắn nhỏ, minigame Snake (bắt buộc) và màn kết thúc có hoa và ánh sáng. **Bản Community** dùng nội dung **lời chúc sinh nhật trung tính**, không cá nhân hóa, không tình cảm riêng tư. Không backend, không analytics — chỉ có một hành trình 2–5 phút.
+Một website quà tặng sinh nhật cỡ nhỏ: hộp quà 3D mở nắp, thiệp, lá thư trong phong bì, những lời chúc nhỏ, minigame Snake (bắt buộc) và màn kết thúc có hoa và ánh sáng. Nội dung mặc định là lời chúc được soạn sẵn, dùng token `{name}` / `{sender}` để đổi tên khi cần. Không backend, không analytics — chỉ có một hành trình 2–5 phút.
 
-> Các trường tên/ngày là **placeholder** (`[Tên người nhận]`, `[Tên người gửi]`, `[Ngày sinh nhật]`). Nội dung thư & lời nhắn là **lời chúc sinh nhật thông thường** (học tập, sức khỏe, may mắn, xinh đẹp, tự tin). Nếu muốn cá nhân hóa, xem mục bên dưới — nhưng **không commit** bản đã điền lên repo công khai.
+> Các trường tên/ngày là **placeholder** (`{name}`, `{sender}`, `[Ngày sinh nhật]`). Toàn bộ lời chúc nằm trong `config.js`. Nếu điền tên thật, xem mục **Quyền riêng tư** bên dưới — **không commit** bản đã điền lên repo công khai.
 
 ## Tính năng
 
@@ -23,7 +23,7 @@ Một website quà tặng sinh nhật cỡ nhỏ: hộp quà 3D mở nắp, thi�
 ## Cấu trúc
 
 ```
-Unwrap-Community/
+Unwrap/
 ├── index.html      # khung semantic của cả hành trình (kèm sân minigame)
 ├── style.css       # thiết kế + hộp quà 3D + minigame snake + responsive + profile hiệu năng
 ├── snake.js        # minigame Snake (thân giãn cách đều, WASD/swipe, pause/resume, khóa ending)
@@ -37,13 +37,14 @@ Unwrap-Community/
     └── images/     # favicon.svg + apple-touch-icon.png
 ```
 
-## Nội dung (bản Community)
+## Nội dung
 
 Toàn bộ nội dung hiển thị nằm trong `config.js`:
 
 - `recipientName`, `senderName`, `birthDateLabel`, `birthDateISO` — placeholder; điền nếu muốn cá nhân hóa.
-- `landing.*`, `card.*`, `letter.*` (kể cả `letter.paragraphs`, `letter.closing`, `letter.signatureLabel`), `notes.items`, `ending.*`, `farewell.*` — lời chúc sinh nhật trung tính.
-- `ending.invite` để trống `""` → ẩn hoàn toàn. `letter.postscript` để trống `""` → ẩn.
+- `landing.*`, `card.*`, `letter.*` (kể cả `letter.paragraphs`, `letter.signatureLabel`), `notes.items`, `ending.*`, `farewell.*` — lời chúc sinh nhật đã soạn sẵn.
+- `ending.message` tách 2 đoạn bằng `\n\n` (CSS `.ending-message` dùng `white-space: pre-line`). `ending.invite` và `ending.signature` để trống `""` → ẩn. `letter.closing`, `letter.postscript` để trống `""` → ẩn.
+- `farewell.sign` là chữ ký riêng của màn tạm biệt (`{sender}`), không dùng lại `ending.signature`.
 - `snake.controlsKbd`, `snake.controlsTouch` — mô tả điều khiển thực tế (WASD/mũi tên và vuốt).
 
 **Riêng tư:** bản đã điền thông tin thật **không được commit** lên repo công khai. Hai cách:
@@ -57,7 +58,7 @@ Không đặt thông tin cá nhân vào tên file, tên ảnh, commit message ha
 Không cần build. Chỉ cần một static server (khuyến nghị, để âm thanh tải được file thật thay vì fallback):
 
 ```bash
-cd Unwrap-Community
+cd Unwrap
 python3 -m http.server 8080
 # mở http://localhost:8080
 ```

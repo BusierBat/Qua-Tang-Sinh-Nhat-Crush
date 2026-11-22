@@ -1,5 +1,5 @@
   /* ============================================================
-     UNWRAP COMMUNITY — LOGIC
+     UNWRAP — LOGIC
      Gồm: nạp cấu hình, hệ thống tự đánh giá & điều chỉnh hiệu năng
      (mục VIII), âm thanh SFX (mục X), hạt lấp lánh + pháo giấy,
      tilt 3D theo con trỏ, và hành trình quà tặng (mục IV).
@@ -49,13 +49,13 @@
   /* ================= CẤU HÌNH ================= */
   // Dự phòng nếu config.js thiếu — trang vẫn chạy với placeholder.
   const DEFAULTS = {
-    recipientName: '[Tên người nhận]', senderName: '[Tên người gửi]', birthDateLabel: '[Ngày sinh nhật]', birthDateISO: '',
-    landing: { kicker: '', greeting: 'Có một món quà nhỏ dành cho {name}.', sub: 'Một chút bất ngờ nhỏ dành cho ngày đặc biệt của bạn.', chipOnBirthday: '', chipOtherwise: '', openButton: 'Mở quà nhé!' },
-    card: { eyebrow: 'Thiệp chúc mừng', title: 'Chúc mừng sinh nhật {name}!', message: 'Chúc bạn có một ngày sinh nhật thật vui vẻ và một tuổi mới thật nhiều niềm vui, may mắn!', toLetterButton: 'Có một lá thư dành cho bạn' },
-    letter: { envelopeHint: 'Chạm vào phong bì để mở', title: 'Gửi {name},', paragraphs: ['Chúc mừng sinh nhật bạn!'], closing: 'Chúc mừng sinh nhật!', signatureLabel: 'Thân mến,', postscript: '' },
-    notes: { sectionTitle: 'Vài lời nhắn nhỏ', sectionHint: 'Mở nếu bạn muốn — không bắt buộc đâu.', openLabel: 'Lời nhắn', items: [], skipLabel: 'Đọc rồi, đi tiếp nhé' },
-    ending: { title: 'Một lần nữa, chúc mừng sinh nhật bạn!', message: 'Chúc bạn tuổi mới thật nhiều sức khỏe, niềm vui, may mắn và thành công!', invite: '', signature: '— {sender}', replayButton: 'Xem lại từ đầu', endButton: 'Kết thúc' },
-    farewell: { title: 'Hẹn một ngày thật đẹp nhé.', sub: '', replayHint: 'mở lại từ đầu' },
+    recipientName: '{name}', senderName: '{sender}', birthDateLabel: '[Ngày sinh nhật]', birthDateISO: '',
+    landing: { kicker: 'Một món quà nhỏ dành riêng cho {name}.', greeting: 'Có một món quà sinh nhật dành cho em nè.', sub: 'Anh có chuẩn bị một chút bất ngờ cho em. Không biết em có thích không, nhưng anh hy vọng khi mở món quà này ra, em sẽ thấy vui.', chipOnBirthday: '', chipOtherwise: '', openButton: 'Mở quà thôi!' },
+    card: { eyebrow: 'Thiệp chúc mừng', title: 'Chúc mừng sinh nhật {name}! 🎉', message: 'Hôm nay là sinh nhật em rồi! Chúc em có một ngày thật vui, nhận được nhiều quà và thật nhiều lời chúc. Mong là hôm nay sẽ có thật nhiều điều dễ thương đến với em.', toLetterButton: 'Đọc thư nè' },
+    letter: { envelopeHint: 'Chạm vào phong bì để mở', title: 'Anh có vài điều muốn gửi em...', paragraphs: ['Sinh nhật vui vẻ nha em!'], closing: '', signatureLabel: 'Gửi em,', postscript: '' },
+    notes: { sectionTitle: 'Những lời chúc nhỏ', sectionHint: 'Mở nếu em muốn — không bắt buộc đâu.', openLabel: 'Lời chúc', items: [], skipLabel: 'Đọc rồi, đi tiếp nhé' },
+    ending: { title: 'Em mở hết quà rồi đó!', message: 'Vậy là em đã mở hết món quà anh chuẩn bị rồi. Anh hy vọng em thích nó và có thêm một chút niềm vui trong ngày hôm nay.\n\nChúc cô gái của anh có một tuổi mới thật vui và thật nhiều điều đáng nhớ. ❤️', invite: '', signature: '', replayButton: 'Xem lại từ đầu', endButton: 'Kết thúc' },
+    farewell: { title: 'Đến đây là hết món quà rồi.', sub: 'Cảm ơn em đã dành thời gian mở món quà nhỏ này. Chúc em sinh nhật vui vẻ, luôn khỏe mạnh, học tốt và cười thật nhiều nha.', sign: '{sender}', replayHint: 'mở lại từ đầu' },
     ui: {
       soundOn: 'Bật âm thanh hiệu ứng', soundOff: 'Tắt âm thanh hiệu ứng',
       perfTitle: 'Hiệu năng hiển thị', perfHint: '', perfAuto: 'Tự động (khuyến nghị)',
