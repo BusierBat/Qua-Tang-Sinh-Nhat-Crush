@@ -28,6 +28,19 @@
     let crashShown = false, winShown = false;
     let swipeStart = null;
     let resumeBtn = null, retryBtn = null;
+    // Điều khiển mặc định: cần vuốt nổi (xuất hiện ngay dưới ngón tay).
+    // 'dpad' = dùng 4 nút mũi tên cố định. Vuốt trên sân luôn dùng được ở cả 2 chế độ.
+    let controlMode = 'stick';
+    try {
+      if (window.localStorage) {
+        const saved = window.localStorage.getItem('qt-snake-control');
+        if (saved === 'stick' || saved === 'dpad') controlMode = saved;
+      }
+    } catch (e) { /* chế độ riêng tư: dùng mặc định */ }
+    let snakeRoot = null, joystick = null, joyKnob = null, controlBtns = [];
+    const JOY_RADIUS = 46;   // bán kính cần (px CSS)
+    const JOY_DEAD = 8;      // vùng chết: chạm nhẹ không đổi hướng
+    let joyPointerId = null;
 
     /* ---------- Kích thước canvas ---------- */
     function resize() {
@@ -140,6 +153,62 @@
       nextDir = d;
     }
 
+    /* Vuốt lệch (đường chéo, tay run) → tự snap về hướng ngang/dọc gần nhất.
+       So sánh |dx| và |dy| chính là phân vùng 45° quanh 4 trục. */
+    function snapDir(dx, dy) {
+      return Math.abs(dx) >= Math.abs(dy)
+        ? { x: dx >= 0 ? 1 : -1, y: 0 }
+        : { x: 0, y: dy >= 0 ? 1 : -1 };
+    }
+
+    /* ---------- Chọn chế độ điều khiển: cần vuốt nổi (mặc định) / 4 nút ---------- */
+    function applyControlMode(mode) {
+      controlMode = (mode === 'dpad') ? 'dpad' : 'stick';
+      if (snakeRoot && snakeRoot.setAttribute) snakeRoot.setAttribute('data-control', controlMode);
+      for (let i = 0; i < controlBtns.length; i++) {
+        const b = controlBtns[i];
+        const on = b.getAttribute && b.getAttribute('data-snake-control') === controlMode;
+        if (b.setAttribute) b.setAttribute('aria-pressed', on ? 'true' : 'false');
+      }
+      if (controlMode !== 'stick') hideJoystick();
+      try {
+        if (window.localStorage) window.localStorage.setItem('qt-snake-control', controlMode);
+      } catch (e) { /* chế độ riêng tư: vẫn dùng trong phiên hiện tại */ }
+    }
+    function onControlModeClick(e) {
+      const btn = e.currentTarget;
+      const mode = btn && btn.getAttribute ? btn.getAttribute('data-snake-control') : '';
+      if (mode === 'stick' || mode === 'dpad') applyControlMode(mode);
+    }
+
+    /* ---------- Cần vuốt nổi: đặt đúng điểm chạm, kéo nút theo ngón tay ---------- */
+    function showJoystick(clientX, clientY) {
+      if (!joystick || !canvas) return;
+      const rect = canvas.getBoundingClientRect();
+      joyPointerId = null;
+      joystick.hidden = false;
+      if (joystick.style) {
+        joystick.style.left = (clientX - rect.left) + 'px';
+        joystick.style.top = (clientY - rect.top) + 'px';
+      }
+      moveJoystick(clientX, clientY);
+    }
+    function moveJoystick(clientX, clientY) {
+      if (!joyKnob || !canvas || joystick.hidden) return;
+      const rect = canvas.getBoundingClientRect();
+      const dx = clientX - rect.left - parseFloat(joystick.style.left || '0');
+      const dy = clientY - rect.top - parseFloat(joystick.style.top || '0');
+      const len = Math.hypot(dx, dy);
+      const k = len > JOY_RADIUS ? JOY_RADIUS / len : 1;
+      if (joyKnob.style) joyKnob.style.transform = 'translate(' + (dx * k) + 'px,' + (dy * k) + 'px)';
+      if (len >= JOY_DEAD) setDir(snapDir(dx, dy));
+    }
+    function hideJoystick() {
+      joyPointerId = null;
+      if (joystick) joystick.hidden = true;
+      if (joyKnob && joyKnob.style) joyKnob.style.transform = 'translate(0px,0px)';
+    }
+
     function isTypingTarget(el) {
       if (!el) return false;
       const tag = (el.tagName || '').toLowerCase();
@@ -162,6 +231,20 @@
       return null;
     }
 
+    /* ---------- 4 nút mũi tên ảo (cảm ứng) — cùng cổng setDir với bàn phím ---------- */
+    const DIR_BY_ATTR = {
+      up: { x: 0, y: -1 }, down: { x: 0, y: 1 },
+      left: { x: -1, y: 0 }, right: { x: 1, y: 0 }
+    };
+    function onDpad(e) {
+      if (!active || paused || winShown || crashShown) return;
+      const btn = e.currentTarget;
+      const d = DIR_BY_ATTR[btn && btn.getAttribute ? btn.getAttribute('data-snake-dir') : ''];
+      if (!d) return;
+      if (e.type === 'pointerdown' && e.preventDefault) e.preventDefault();
+      setDir(d);
+    }
+
     function keyHandler(e) {
       if (!active) return;
       if (isTypingTarget(e.target)) return;
@@ -177,26 +260,35 @@
       if (d) { e.preventDefault(); setDir(d); }
     }
 
-    /* ---------- Vuốt (một lần vuốt = một lần đổi hướng) ---------- */
+    /* ---------- Vuốt trên sân + cần vuốt nổi (cùng một cổng setDir) ---------- */
     function onPointerDown(e) {
-      if (!active || paused) return;
+      if (!active || paused || winShown || crashShown) return;
       swipeStart = { x: e.clientX, y: e.clientY };
+      if (controlMode === 'stick') {
+        showJoystick(e.clientX, e.clientY);
+        joyPointerId = (e.pointerId != null) ? e.pointerId : 'mouse';
+      }
       if (e.pointerId != null && canvas.setPointerCapture) {
         try { canvas.setPointerCapture(e.pointerId); } catch (err) { }
       }
     }
+    function onPointerMove(e) {
+      if (!active || paused || winShown || crashShown) return;
+      if (controlMode !== 'stick' || joystick.hidden) return;
+      if (joyPointerId != null && e.pointerId != null && e.pointerId !== joyPointerId) return;
+      moveJoystick(e.clientX, e.clientY);
+    }
     function onPointerUp(e) {
-      if (!active || !swipeStart) { swipeStart = null; return; }
+      if (!active || !swipeStart) { swipeStart = null; hideJoystick(); return; }
       const dx = e.clientX - swipeStart.x;
       const dy = e.clientY - swipeStart.y;
       swipeStart = null;
+      if (controlMode === 'stick') hideJoystick();
       if (paused || winShown || crashShown) return;
-      const adx = Math.abs(dx), ady = Math.abs(dy);
-      if (Math.max(adx, ady) < 24) return;   // chạm nhẹ, không phải vuốt
-      if (adx > ady) setDir(dx > 0 ? { x: 1, y: 0 } : { x: -1, y: 0 });
-      else setDir(dy > 0 ? { x: 0, y: 1 } : { x: 0, y: -1 });
+      if (Math.max(Math.abs(dx), Math.abs(dy)) < 24) return;   // chạm nhẹ, không phải vuốt
+      setDir(snapDir(dx, dy));   // lệch chéo vẫn tự snap về trục gần nhất
     }
-    function onPointerCancel() { swipeStart = null; }
+    function onPointerCancel() { swipeStart = null; hideJoystick(); }
 
     /* ---------- Pause / resume ---------- */
     function togglePause() { setPaused(!paused); }
@@ -205,6 +297,8 @@
       if (paused === p) return;
       paused = p;
       if (p) {
+        hideJoystick();
+        swipeStart = null;
         running = false;
         if (rafId) { cancelAnimationFrame(rafId); rafId = null; }
         showOverlay('snake-ov-paused');
@@ -385,7 +479,13 @@
       canvas = document.getElementById('snake-canvas');
       resumeBtn = document.getElementById('snake-btn-resume');
       retryBtn = document.getElementById('snake-btn-retry');
+      snakeRoot = document.getElementById('snake-root');
+      joystick = document.getElementById('snake-joystick');
+      joyKnob = document.getElementById('snake-joystick-knob');
+      controlBtns = document.querySelectorAll ? document.querySelectorAll('[data-snake-control]') : [];
+      applyControlMode(controlMode);   // đồng bộ class/attr UI với lựa chọn đã lưu
       addListener(canvas, 'pointerdown', onPointerDown, { passive: false });
+      addListener(canvas, 'pointermove', onPointerMove, { passive: false });
       addListener(canvas, 'pointerup', onPointerUp, { passive: false });
       addListener(canvas, 'pointercancel', onPointerCancel);
       addListener(document, 'keydown', keyHandler);
@@ -395,6 +495,16 @@
       });
       addListener(resumeBtn, 'click', onResumeClick);
       addListener(retryBtn, 'click', onRetryClick);
+      // D-pad ảo: pointerdown để phản hồi ngay trên touch, click để hỗ trợ bàn phím/assistive tech.
+      // Cùng một hàm setDir → chặn quay đầu 180° và chặn khi pause/thua/thắng như phím.
+      const dpadBtns = document.querySelectorAll ? document.querySelectorAll('[data-snake-dir]') : [];
+      for (let i = 0; i < dpadBtns.length; i++) {
+        addListener(dpadBtns[i], 'pointerdown', onDpad, { passive: false });
+        addListener(dpadBtns[i], 'click', onDpad);
+      }
+      for (let i = 0; i < controlBtns.length; i++) {
+        addListener(controlBtns[i], 'click', onControlModeClick);
+      }
       if (canvas) canvas.style.touchAction = 'none';
     }
     function unbindAll() {
@@ -432,6 +542,7 @@
       unbindAll();
       paused = false;
       swipeStart = null;
+      hideJoystick();
     }
 
     function mount(rootNode, callbacks) {
@@ -452,10 +563,13 @@
             collected: collected, crashShown: crashShown, winShown: winShown,
             segCount: segCount, head: { x: head.x, y: head.y },
             heart: heart ? { x: heart.x, y: heart.y } : null,
-            bound: bound.length
+            bound: bound.length,
+            controlMode: controlMode,
+            joystickVisible: !!(joystick && !joystick.hidden)
           };
         },
         setHeart: function (x, y) { heart = { x: x, y: y, t: 0 }; },
+        setControlMode: function (m) { applyControlMode(m); },
         step: function (dt) { step(dt); }
       };
     }

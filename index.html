@@ -288,7 +288,12 @@
           <div class="snake-count" id="snake-count" aria-hidden="true">0/5</div>
         </header>
         <div class="snake-board">
-          <canvas id="snake-canvas" aria-label="Sân chơi Snake — dùng bàn phím WASD/phím mũi tên, hoặc vuốt theo hướng muốn rẽ trên màn cảm ứng"></canvas>
+          <canvas id="snake-canvas" aria-label="Sân chơi Snake — dùng bàn phím WASD/phím mũi tên; trên cảm ứng chạm và vuốt tại bất kỳ đâu trên sân để điều khiển, hoặc đổi sang 4 nút mũi tên bên dưới"></canvas>
+          <!-- Cần vuốt nổi: hiện đúng chỗ ngón tay chạm, mặc định. pointer-events:none để không chặn canvas. -->
+          <div class="snake-joystick" id="snake-joystick" aria-hidden="true" hidden>
+            <div class="snake-joystick-ring"></div>
+            <div class="snake-joystick-knob" id="snake-joystick-knob"></div>
+          </div>
           <svg class="snake-deco snake-deco-tl" viewBox="0 0 90 90" aria-hidden="true" focusable="false">
             <path d="M14 40c-8-10-6-22 4-28 8 8 10 20 4 28-3 1-6 1-8 0Z" fill="#A8C5AE" opacity="0.5"/>
             <path d="M30 18c8-6 18-6 24 2-6 7-16 10-24 6-1-3-1-6 0-8Z" fill="#A8C5AE" opacity="0.32"/>
@@ -350,6 +355,19 @@
               <p class="snake-ov-body" data-cfg="snake.ovWinBody"></p>
             </div>
           </div>
+        </div>
+        <!-- Chọn cách điều khiển: cần vuốt nổi (mặc định) hoặc 4 nút cố định.
+             Vuốt trực tiếp trên sân luôn dùng được ở cả hai chế độ. -->
+        <div class="snake-controls-picker" role="group" aria-label="Chọn cách điều khiển rắn trên cảm ứng">
+          <span class="snake-controls-label" data-cfg="snake.controlsLabel"></span>
+          <button type="button" class="snake-controls-opt" data-snake-control="stick" aria-pressed="true" data-cfg="snake.controlStick"></button>
+          <button type="button" class="snake-controls-opt" data-snake-control="dpad" aria-pressed="false" data-cfg="snake.controlDpad"></button>
+        </div>
+        <div class="snake-dpad" role="group" aria-label="Điều khiển rắn bằng 4 nút mũi tên">
+          <button type="button" class="snake-dpad-btn snake-dpad-up" data-snake-dir="up" aria-label="Rẽ lên">▲</button>
+          <button type="button" class="snake-dpad-btn snake-dpad-left" data-snake-dir="left" aria-label="Rẽ trái">◀</button>
+          <button type="button" class="snake-dpad-btn snake-dpad-down" data-snake-dir="down" aria-label="Rẽ xuống">▼</button>
+          <button type="button" class="snake-dpad-btn snake-dpad-right" data-snake-dir="right" aria-label="Rẽ phải">▶</button>
         </div>
         <p class="snake-footnote" data-cfg="snake.hint"></p>
       </div>

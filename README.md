@@ -10,7 +10,7 @@ Một website quà tặng sinh nhật cỡ nhỏ: hộp quà 3D mở nắp, thi�
 - **KHÔNG có nhạc nền.** Chỉ có 8 hiệu ứng âm thanh ngắn (rung hộp, mở hộp, lấp lánh, mở phong bì, giấy, thu thập tim, hoàn thành snake, chuông kết). Mặc định **muted** cho tới khi người dùng chủ động bật bằng nút loa. Nếu file âm thanh lỗi/bị chặn (vd. mở bằng `file://`), hệ thống tự chuyển sang fallback tổng hợp bằng WebAudio cùng tính cách âm — trang không bao giờ vỡ vì âm thanh.
 - **Minigame Snake — cổng bắt buộc vào màn kết thúc**: thu thập đúng 5 trái tim mới được chuyển sang màn kết. Rắn vẽ tọa độ liên tục trên canvas (không lưới, không pixel art, không emoji).
   - **Thân rắn giãn cách đều theo quãng đường di chuyển thực tế** (không phụ thuộc FPS): polyline vị trí đầu rắn được lấy mẫu lại theo cung để các đoạn luôn cách nhau một khoảng cố định — mượt và ổn định cả khi FPS thấp/cao/thay đổi.
-  - **Điều khiển**: trên máy tính **WASD hoặc phím mũi tên** (nhận diện cả `e.code` vật lý lẫn `e.key` chữ cái nên đúng cả bàn phím AZERTY/QWERTZ); trên điện thoại **vuốt theo hướng muốn rẽ** (một cú vuốt = một lần đổi hướng, Pointer Events + `touch-action:none` nên vuốt trong sân không cuộn trang).
+  - **Điều khiển**: trên máy tính **WASD hoặc phím mũi tên** (nhận diện cả `e.code` vật lý lẫn `e.key` chữ cái nên đúng cả bàn phím AZERTY/QWERTZ). Trên cảm ứng, **mặc định là cần vuốt nổi**: chạm bất kỳ đâu trên sân là cần hiện đúng chỗ ngón tay, kéo để rẽ, nhấc tay là ẩn; vuốt lệch/chéo được tự snap về hướng ngang hoặc dọc gần nhất. Ngay dưới sân có bộ chọn **"Cần vuốt" / "4 nút mũi tên"** — chọn 4 nút thì D-pad hiện thay thế, lựa chọn được lưu trong `localStorage`. Vuốt trực tiếp trên sân vẫn dùng được ở cả hai chế độ. Mọi nguồn input đều đi qua một cổng `setDir` nên cùng chặn quay đầu 180°, và dùng chung trạng thái tạm dừng/thua/thắng. Pointer Events + `touch-action:none` nên vuốt trong sân không cuộn trang.
   - Va chạm biên/thân → chỉ chơi lại minigame, tiến trình tim về 0/5, các phần trước giữ nguyên. Không giới hạn thời gian, không skip.
   - **Tạm dừng**: khi rời tab hoặc bấm Space, game dừng hẳn và hiện overlay "Tạm dừng"; nhấn nút **Chơi tiếp** (hoặc Space) mới chạy lại. Không tự chạy lại khi chưa xác nhận.
   - **Khóa màn kết thúc tập trung**: `goto('ending')` chỉ mở khi đã thắng Snake đủ 5/5 (`snakeDone`). Không dựa vào ẩn/hiện nút.
@@ -83,6 +83,12 @@ Màn kết thúc chỉ mở khi người chơi **hoàn thành Snake với đủ 
 ## Tương thích & kiểm thử
 
 Mã nguồn hướng tới responsive đầy đủ (320×640 … 1920×1080) và thiết bị cảm ứng (Android/iOS Safari, Chrome). **Chưa xác minh trên thiết bị thật**: mã được viết để chạy tốt trên nhiều cấu hình nhưng số liệu FPS thực tế cần đo trên máy thật. Nếu cần, bảng cài hiệu năng ở góc phải trên có thể chuyển thủ công sang "Tiết kiệm tài nguyên".
+
+### Test kiểu iPhone khi không có iPhone
+
+1. **Nhanh nhất, có sẵn**: Brave/Chrome → `F12` → `Ctrl+Shift+M` → chọn `iPhone 14 Pro`, bật touch emulation, throttle CPU 4x + Fast 3G. Test được responsive, 4 nút D-pad, vuốt, `100dvh`, console. **Nhược**: vẫn là engine Blink, không phải WebKit của Safari.
+2. **Gần Safari nhất trên Windows**: Playwright + engine **WebKit** (tải bằng `npx playwright install webkit`), dùng context `devices['iPhone 13']` (`isMobile`, `hasTouch`, DPR 3) trỏ tới `http://127.0.0.1:8080`. Đây là engine WebKit thật, nên phát hiện được lỗi CSS/JS riêng của Safari mà DevTools Chrome bỏ sót.
+3. **iPhone thật trên cloud**: BrowserStack / LambdaTest có trial — Safari/iOS thật 100% nhưng có giới hạn thời gian.
 
 ## Quyền riêng tư
 
