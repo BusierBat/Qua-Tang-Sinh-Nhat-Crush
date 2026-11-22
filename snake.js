@@ -4,7 +4,7 @@
   function SnakeGameFactory() {
     let canvas = null, ctx = null, view = { w: 0, h: 0 }, cbs = {};
     let active = false;            // có phiên chơi đang mở (giữa begin và stop)
-    let running = false, rafId = null, last = 0;   // vòng lặp RAF
+    let running = false, rafId = null, last = 0, lastSet = false;   // vòng lặp RAF
     let beginTimer = 0, beginToken = 0;
     let bound = [];                // danh sách listener đã đăng ký
 
@@ -17,12 +17,21 @@
     const HEART_HIT = 28;          // bán kính thu thập tim
 
     let head = { x: W * 0.5, y: H * 0.5 };
-    let dir = { x: 1, y: 0 }, nextDir = { x: 1, y: 0 };
+    let dir = { x: 1, y: 0 };
+    // Hàng đợi hướng: tối đa 2 lần rẽ trước frame tiếp theo. So với hướng
+    // CUỐI trong hàng đợi (không chỉ dir) nên không thể quay đầu 180° bằng
+    // cách bấm liên tục Up rồi Left trước khi dir kịp cập nhật.
+    let dirQueue = [];
     let trail = [];                // polyline vị trí đầu rắn (mới → cũ)
     let segments = [];             // thân rắn giãn cách đều theo cung
     let segCount = BASE_SEGS;
-    let heart = null, collected = 0;
+    let heart = null, needHeart = false, collected = 0;
     const TARGET = 5;
+
+    // Fixed timestep: tốc độ không đổi dù FPS tụt, vẫn chia nhỏ để không xuyên.
+    const FIXED_DT = 1 / 60;
+    const MAX_STEPS_PER_FRAME = 12;   // chống spiral of death khi tab bị treo
+    let accumulator = 0;
 
     let paused = false;
     let crashShown = false, winShown = false;
@@ -47,7 +56,15 @@
       if (!canvas || !ctx) return;
       const rect = canvas.getBoundingClientRect();
       if (rect.width < 2 || rect.height < 2) return;   // màn còn ẩn → giữ kích thước cũ
-      const dpr = window.devicePixelRatio || 1;
+      // Dùng chung giới hạn DPR của Performance Profile (efficient=1,
+      // balanced=1.5, high=2), giống canvas hạt — không tự ý lấy DPR máy.
+      let dprCap = 2;
+      try {
+        if (window.Perf && typeof window.Perf.getDprCap === 'function') {
+          dprCap = window.Perf.getDprCap() || 2;
+        }
+      } catch (e) { dprCap = 2; }
+      const dpr = Math.min(window.devicePixelRatio || 1, dprCap);
       canvas.width = Math.round(rect.width * dpr);
       canvas.height = Math.round(rect.height * dpr);
       ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
@@ -92,27 +109,43 @@
     }
 
     /* ---------- Trái tim: spawn an toàn, không chồng thân ---------- */
-    function freeSpot(x, y) {
+    const HEART_CLEAR = 26;   // khoảng cách tối thiểu tới đầu, thân và biên
+
+    // Độ thoáng của một điểm = khoảng cách nhỏ nhất tới đầu, mọi đoạn thân và biên.
+    function clearance(x, y) {
+      let best = Math.min(x - WALL, W - WALL - x, y - WALL, H - WALL - y);
+      best = Math.min(best, Math.hypot(head.x - x, head.y - y));
       for (let i = 0; i < segments.length; i++) {
-        if (Math.hypot(segments[i].x - x, segments[i].y - y) < 30) return false;
+        const d = Math.hypot(segments[i].x - x, segments[i].y - y);
+        if (d < best) best = d;
       }
-      return true;
+      return best;
     }
     function spawnHeart() {
-      const margin = 30;
+      const margin = HEART_CLEAR + 4;
+      let bestPoint = null, bestScore = -Infinity;
+
+      function consider(x, y) {
+        const c = clearance(x, y);
+        if (c > bestScore) { bestScore = c; bestPoint = { x: x, y: y }; }
+        return c >= HEART_CLEAR;
+      }
+
       for (let tries = 0; tries < 300; tries++) {
         const x = margin + Math.random() * (W - margin * 2);
         const y = margin + Math.random() * (H - margin * 2);
-        if (freeSpot(x, y)) { heart = { x: x, y: y, t: 0 }; return; }
+        if (consider(x, y)) { heart = { x: x, y: y, t: 0 }; needHeart = false; return; }
       }
       // vòng quét lưới xác định (không lặp vô hạn)
-      for (let gy = margin; gy <= H - margin; gy += 24) {
-        for (let gx = margin; gx <= W - margin; gx += 24) {
-          if (freeSpot(gx, gy)) { heart = { x: gx, y: gy, t: 0 }; return; }
+      for (let gy = margin; gy <= H - margin; gy += 22) {
+        for (let gx = margin; gx <= W - margin; gx += 22) {
+          if (consider(gx, gy)) { heart = { x: gx, y: gy, t: 0 }; needHeart = false; return; }
         }
       }
-      // board gần kín: chọn điểm còn thoáng nhất, an toàn để tiếp tục
-      heart = { x: W / 2, y: H / 2, t: 0 };
+      // Không có điểm đủ thoáng: KHÔNG ép tim vào giữa sân. Để trống và
+      // thử lại ở frame sau, khi rắn đã đi thêm một đoạn.
+      heart = null;
+      needHeart = true;
     }
 
     /* ---------- HUD ---------- */
@@ -147,10 +180,16 @@
       if (ov) ov.hidden = true;
     }
 
-    /* ---------- Điều hướng ---------- */
+    /* ---------- Điều hướng: hàng đợi, chặn 180° kể cả bấm liên tục ---------- */
     function setDir(d) {
-      if (d.x === -dir.x && d.y === -dir.y) return;   // cấm quay đầu 180°
-      nextDir = d;
+      if (!d) return;
+      const ref = dirQueue.length ? dirQueue[dirQueue.length - 1] : dir;
+      // Trùng hướng đang chờ → không cần xếp thêm (cần vuốt gọi mỗi pointermove).
+      if (d.x === ref.x && d.y === ref.y) return;
+      // Quay đầu 180° so với hướng CUỐI đã xếp → chặn.
+      if (d.x === -ref.x && d.y === -ref.y) return;
+      if (dirQueue.length >= 2) return;   // tối đa 2 lần rẽ cho các frame tới
+      dirQueue.push({ x: d.x, y: d.y });
     }
 
     /* Vuốt lệch (đường chéo, tay run) → tự snap về hướng ngang/dọc gần nhất.
@@ -264,9 +303,11 @@
     function onPointerDown(e) {
       if (!active || paused || winShown || crashShown) return;
       swipeStart = { x: e.clientX, y: e.clientY };
-      if (controlMode === 'stick') {
+      // Cần nổi CHỈ cho cảm ứng. Chuột trên desktop vẫn vuốt kiểu cũ
+      // (đổi hướng lúc nhấc), không hiện một cái cần giả tạo.
+      if (controlMode === 'stick' && e.pointerType === 'touch') {
         showJoystick(e.clientX, e.clientY);
-        joyPointerId = (e.pointerId != null) ? e.pointerId : 'mouse';
+        joyPointerId = (e.pointerId != null) ? e.pointerId : 'touch';
       }
       if (e.pointerId != null && canvas.setPointerCapture) {
         try { canvas.setPointerCapture(e.pointerId); } catch (err) { }
@@ -274,16 +315,22 @@
     }
     function onPointerMove(e) {
       if (!active || paused || winShown || crashShown) return;
-      if (controlMode !== 'stick' || joystick.hidden) return;
-      if (joyPointerId != null && e.pointerId != null && e.pointerId !== joyPointerId) return;
+      if (controlMode !== 'stick' || joyPointerId === null || joystick.hidden) return;
+      if (e.pointerId != null && e.pointerId !== joyPointerId) return;
       moveJoystick(e.clientX, e.clientY);
     }
     function onPointerUp(e) {
       if (!active || !swipeStart) { swipeStart = null; hideJoystick(); return; }
       const dx = e.clientX - swipeStart.x;
       const dy = e.clientY - swipeStart.y;
+      const wasJoystick = joyPointerId !== null;
       swipeStart = null;
-      if (controlMode === 'stick') hideJoystick();
+      if (wasJoystick) {
+        // Đường cong/điểm nhấc khác điểm kéo vẫn không được ghi đè hướng
+        // đã xác lập trong onPointerMove. Cần đã làm việc của nó rồi.
+        hideJoystick();
+        return;
+      }
       if (paused || winShown || crashShown) return;
       if (Math.max(Math.abs(dx), Math.abs(dy)) < 24) return;   // chạm nhẹ, không phải vuốt
       setDir(snapDir(dx, dy));   // lệch chéo vẫn tự snap về trục gần nhất
@@ -341,11 +388,13 @@
     /* ---------- Bước đi (khoảng cách thực, chia nhỏ để không xuyên) ---------- */
     function step(dt) {
       if (paused || winShown || crashShown) return;
-      dir = nextDir;
+      if (dirQueue.length) dir = dirQueue.shift();   // mỗi tick chỉ tiêu thụ 1 lần rẽ
       const dist = 150 * dt;                     // tốc độ không đổi theo thời gian
       const sub = Math.max(1, Math.ceil(dist / 4));
       const sl = dist / sub;
-      for (let s = 0; s < sub; s++) {
+      let gotHeart = false;
+
+      for (let s = 0; s < sub && !gotHeart; s++) {
         const nx = head.x + dir.x * sl;
         const ny = head.y + dir.y * sl;
         if (nx < WALL || nx > W - WALL || ny < WALL || ny > H - WALL) { crash(); return; }
@@ -353,17 +402,22 @@
           if (Math.hypot(segments[i].x - nx, segments[i].y - ny) < BODY_R) { crash(); return; }
         }
         head.x = nx; head.y = ny;
-        if (heart && Math.hypot(heart.x - nx, heart.y - ny) < HEART_HIT) {
-          collected++;
-          updateHUD();
-          if (cbs.onCollect) cbs.onCollect(collected);
-          if (collected >= TARGET) { win(); return; }
-          segCount = BASE_SEGS + collected;
-          spawnHeart();
-        }
+        if (heart && Math.hypot(heart.x - nx, heart.y - ny) < HEART_HIT) gotHeart = true;
       }
+
+      if (gotHeart) {
+        collected++;
+        updateHUD();
+        if (cbs.onCollect) cbs.onCollect(collected);
+        if (collected >= TARGET) { win(); return; }
+        segCount = BASE_SEGS + collected;
+      }
+
+      // Cập nhật thân TRƯỚC khi spawn tim: tim mới được kiểm tra với đúng
+      // chiều dài sau khi ăn, kể cả đầu rắn ở vị trí vừa đi tới.
       trail.unshift({ x: head.x, y: head.y });
       updateSegments();
+      if (gotHeart || needHeart) spawnHeart();
     }
 
     /* ---------- Vẽ ---------- */
@@ -438,10 +492,18 @@
     /* ---------- Vòng lặp ---------- */
     function loop(ts) {
       if (!running) return;
-      if (!last) last = ts;
-      const dt = Math.min((ts - last) / 1000, 0.05);
+      if (!lastSet) { last = ts; lastSet = true; }
+      // Fixed timestep + accumulator: thời gian dư được GIỮ lại cho frame sau
+      // thay vì bị cắt như code cũ. Clamp chỉ để chống spiral khi tab treo lâu.
+      const elapsed = Math.min(Math.max((ts - last) / 1000, 0), 0.2);
       last = ts;
-      step(dt);
+      accumulator += elapsed;
+      let steps = 0;
+      while (accumulator >= FIXED_DT && steps < MAX_STEPS_PER_FRAME && running) {
+        step(FIXED_DT);
+        accumulator -= FIXED_DT;
+        steps++;
+      }
       draw();
       if (running) rafId = requestAnimationFrame(loop);
     }
@@ -449,6 +511,8 @@
       if (running || paused || winShown || crashShown) return;
       running = true;
       last = 0;
+      lastSet = false;
+      accumulator = 0;
       rafId = requestAnimationFrame(loop);
     }
 
@@ -457,7 +521,10 @@
       collected = 0;
       crashShown = false; winShown = false; paused = false;
       segCount = BASE_SEGS;
-      dir = { x: 1, y: 0 }; nextDir = { x: 1, y: 0 };
+      dir = { x: 1, y: 0 };
+      dirQueue.length = 0;
+      accumulator = 0;
+      lastSet = false;
       head = { x: W * 0.5, y: H * 0.5 };
       trail = [];
       for (let k = 0; k < segCount + 3; k++) {
@@ -490,6 +557,8 @@
       addListener(canvas, 'pointercancel', onPointerCancel);
       addListener(document, 'keydown', keyHandler);
       addListener(window, 'resize', resize);
+      // Đổi profile hiệu năng ngay khi đang ở màn Snake → đổi DPR canvas luôn.
+      addListener(window, 'qt-perf-change', resize);
       addListener(document, 'visibilitychange', function () {
         if (document.hidden && active) setPaused(true);
       });
@@ -542,6 +611,9 @@
       unbindAll();
       paused = false;
       swipeStart = null;
+      dirQueue.length = 0;
+      accumulator = 0;
+      lastSet = false;
       hideJoystick();
     }
 
@@ -563,13 +635,23 @@
             collected: collected, crashShown: crashShown, winShown: winShown,
             segCount: segCount, head: { x: head.x, y: head.y },
             heart: heart ? { x: heart.x, y: heart.y } : null,
+            needHeart: needHeart,
+            queueLen: dirQueue.length,
             bound: bound.length,
             controlMode: controlMode,
             joystickVisible: !!(joystick && !joystick.hidden)
           };
         },
-        setHeart: function (x, y) { heart = { x: x, y: y, t: 0 }; },
+        setHeart: function (x, y) { heart = { x: x, y: y, t: 0 }; needHeart = false; },
         setControlMode: function (m) { applyControlMode(m); },
+        spawnHeart: function () { spawnHeart(); },
+        // Bỏ qua đếm ngược để drive vòng lặp bằng timestamp giả định (test FPS).
+        forceStart: function () {
+          if (beginTimer) { clearTimeout(beginTimer); beginTimer = 0; }
+          hideOverlay();
+          startLoop();
+        },
+        tickLoop: function (ts) { loop(ts); },
         step: function (dt) { step(dt); }
       };
     }

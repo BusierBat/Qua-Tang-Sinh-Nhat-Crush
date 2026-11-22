@@ -193,6 +193,8 @@
      - Giám sát runtime có hysteresis, chỉ đổi giữa các màn hình.
      ============================================================ */
   const Perf = (function () {
+    // Nguồn chung cho MỌI canvas: hạt và Snake cùng dùng một giới hạn DPR.
+    const DPR_CAP = { efficient: 1, balanced: 1.5, high: 2 };
     const signals = {
       cores: 0, memory: 0, gpu: '', webgl: false, dpr: 1,
       screen: { w: 0, h: 0 }, css: { blur: true, dvh: false },
@@ -206,6 +208,7 @@
     let announceDone = false;
     let monitorOn = false;
     let monitorTimer = 0;
+    let monitorRaf = 0;
     let frozenUntil = 0;
     let frames = [];
     let lastT = 0;
@@ -335,6 +338,10 @@
       html.dataset.perf = profile;
       html.dataset.rt = rtLevel === 0 ? 'ok' : (rtLevel === -1 ? 'mid' : 'low');
       if (window.__qtParticles) window.__qtParticles.applyProfile(profile);
+      // Báo cho các canvas khác (Snake) đổi DPR ngay, không đợi resize cửa sổ.
+      try {
+        window.dispatchEvent(new CustomEvent('qt-perf-change', { detail: { profile: profile } }));
+      } catch (e) { }
       updateStatusUI();
       const name = CFG.ui.profileNames[profile] || profile;
       const mode = manual === 'auto' ? CFG.ui.modeAuto : CFG.ui.modeManual;
@@ -398,17 +405,22 @@
       if (monitorOn) return;
       monitorOn = true;
       const loop = function (t) {
+        if (!monitorOn) return;          // ID cũ không tự đăng ký frame mới sau stop
         if (lastT) frames.push(t - lastT);
         if (frames.length > 130) frames.shift();
         lastT = t;
-        requestAnimationFrame(loop);
+        monitorRaf = requestAnimationFrame(loop);
       };
-      requestAnimationFrame(loop);
+      monitorRaf = requestAnimationFrame(loop);
       monitorTimer = setInterval(evaluate, 2000);
     }
     function stopMonitor() {
       monitorOn = false;
       clearInterval(monitorTimer);
+      monitorTimer = 0;
+      if (monitorRaf) { cancelAnimationFrame(monitorRaf); monitorRaf = 0; }
+      lastT = 0;
+      frames.length = 0;
     }
     function freeze(ms) { frozenUntil = performance.now() + (ms || 1600); }
     function evaluate() {
@@ -464,9 +476,12 @@
       init: init, startMonitor: startMonitor, stopMonitor: stopMonitor,
       freeze: freeze, rateMul: rateMul, closePanel: function () { },
       getProfile: function () { return profile; },
+      getDprCap: function () { return DPR_CAP[profile] || 1.5; },
       getManual: function () { return manual; }
     };
   })();
+  // snake.js load trước script.js nhưng chỉ resize lúc mount → lấy được cap ở đây.
+  window.Perf = Perf;
 
   /* ============================================================
      ÂM THANH — CHỈ HIỆU ỨNG NGẮN (SFX)
@@ -827,12 +842,12 @@
     }
     function applyProfile(p) {
       const map = {
-        efficient: { burst: 42, ambient: 2.4, landing: 0.9, max: 64, dpr: 1 },
-        balanced: { burst: 84, ambient: 4.5, landing: 1.4, max: 120, dpr: 1.5 },
-        high: { burst: 150, ambient: 7.5, landing: 2.4, max: 200, dpr: 2 }
+        efficient: { burst: 42, ambient: 2.4, landing: 0.9, max: 64 },
+        balanced: { burst: 84, ambient: 4.5, landing: 1.4, max: 120 },
+        high: { burst: 150, ambient: 7.5, landing: 2.4, max: 200 }
       };
       prof = map[p] || map.balanced;
-      capDpr = prof.dpr;
+      capDpr = Perf.getDprCap();
       // Đồng bộ hệ số giảm tải runtime (máy đột ngột quá tải → ít hạt hơn)
       const rt = document.documentElement.dataset.rt;
       rateMul = rt === 'mid' ? 0.7 : rt === 'low' ? 0.5 : 1;
@@ -1260,6 +1275,9 @@
       if (SnakeGame) SnakeGame.stop();
       phase = 'landing';
       show('landing');
+      // stopMonitor() đã dừng hẳn vòng RAF ở màn farewell. Khi xem lại từ đầu
+      // thì bật lại có kiểm soát (startMonitor có guard, không chồng vòng).
+      Perf.startMonitor();
       setTimeout(function () { Particles.startAmbient('landing'); }, 700);
       requestAnimationFrame(function () {
         requestAnimationFrame(function () {
